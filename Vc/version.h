@@ -28,6 +28,30 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef VC_VERSION_H_
 #define VC_VERSION_H_
 
+#include "detail/compiler_detection.h"
+
+#ifndef DOXYGEN
+
+#ifdef Vc_ICC
+namespace Vc_2 {}
+namespace Vc = Vc_2;
+#define Vc_VERSIONED_NAMESPACE Vc_2
+#define Vc_VERSIONED_NAMESPACE_BEGIN namespace Vc_2 {
+#define Vc_VERSIONED_NAMESPACE_END }
+#else
+namespace Vc
+{
+inline namespace v2
+{
+}  // namespace v2
+}  // namespace Vc
+#define Vc_VERSIONED_NAMESPACE Vc::v2
+#define Vc_VERSIONED_NAMESPACE_BEGIN namespace Vc { inline namespace v2 {
+#define Vc_VERSIONED_NAMESPACE_END }}
+#endif
+
+#endif // DOXYGEN
+
 /**
  * \name Version Macros
  * \ingroup Utilities
