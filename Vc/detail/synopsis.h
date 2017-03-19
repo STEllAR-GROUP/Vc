@@ -555,13 +555,13 @@ datapar<T, A> clamp(const datapar<T, A> &v, const datapar<T, A> &lo,
 
 // math functions 
 template <class T, class Abi>
-Vc_INTRINSIC datapar<T, Abi> sqrt (const datapar<T, Abi> &x)
+Vc_INTRINSIC datapar<T, Abi> sqrt(const datapar<T, Abi> &x)
 {
     return detail::get_impl_t<datapar<T, Abi>>::sqrt(x);
 }
 
 template <class T, class Abi>
-Vc_INTRINSIC datapar<T, Abi> abs (const datapar<T, Abi> &x)
+Vc_INTRINSIC datapar<T, Abi> abs(const datapar<T, Abi> &x)
 {
     return detail::get_impl_t<datapar<T, Abi>>::abs(x);
 }
