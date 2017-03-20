@@ -1445,8 +1445,26 @@ Vc_INTRINSIC __m256d abs(__m256d a) { return _mm256_and_pd(a, setabsmask_pd_32()
 Vc_INTRINSIC __m512  abs(__m512  a) { return _mm512_and_ps(a, setabsmask_ps_64()); }
 Vc_INTRINSIC __m512d abs(__m512d a) { return _mm512_and_pd(a, setabsmask_pd_64()); }
 #elif defined(Vc_HAVE_AVX512F)
-Vc_INTRINSIC __m512  abs(__m512  a) { return _mm512_abs_ps(a); }
-Vc_INTRINSIC __m512d abs(__m512d a) { return _mm512_abs_pd(a); }
+Vc_INTRINSIC __m512  abs(__m512  a)
+{
+    // If we static_cast instead of reinterpret_cast for the __512i <-> __m512
+    // conversions, ICPC whines.
+    __m512  const mask_ps    = setabsmask_ps_64();
+    __m512i const mask_epi64 = *reinterpret_cast<__m512i const*>(&mask_ps);
+    __m512i const a_epi64    = *reinterpret_cast<__m512i const*>(&a); 
+    __m512i const r_epi64    = _mm512_and_epi64(a_epi64, mask_epi64);
+    return *reinterpret_cast<__m512 const*>(&r_epi64);
+}
+Vc_INTRINSIC __m512d abs(__m512d a) 
+{
+    // If we static_cast instead of reinterpret_cast for the __512i <-> __m512d
+    // conversions, ICPC whines.
+    __m512d const mask_pd    = setabsmask_pd_64();
+    __m512i const mask_epi64 = *reinterpret_cast<__m512i const*>(&mask_pd);
+    __m512i const a_epi64    = *reinterpret_cast<__m512i const*>(&a); 
+    __m512i const r_epi64    = _mm512_and_epi64(a_epi64, mask_epi64);
+    return *reinterpret_cast<__m512d const*>(&r_epi64);
+}
 #endif // Vc_HAVE_AVX512F
 
 // testc{{{1
