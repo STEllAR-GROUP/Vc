@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "datapar.h"
 #include "detail.h"
 #include <array>
+#include <cmath>
 
 Vc_VERSIONED_NAMESPACE_BEGIN
 namespace detail {
@@ -288,6 +289,22 @@ template <int N> struct fixed_size_datapar_impl {
                     return static_cast<T>(
                         Vc::detail::promote_preserving_unsigned(x.d[i]) >> y.d[i]);
                 })};
+    }
+
+    // sqrt {{{2
+    template <class T, class A>
+    static inline Vc::datapar<T, A> sqrt(const Vc::datapar<T, A> &x) noexcept {
+        using std::sqrt;
+        return {private_init, generate_from_n_evaluations<N, datapar_member_type<T>>(
+                                  [&](auto i) { return static_cast<T>(sqrt(x.d[i])); })};
+    }
+
+    // abs {{{2
+    template <class T, class A>
+    static inline Vc::datapar<T, A> abs(const Vc::datapar<T, A> &x) noexcept {
+        using std::abs;
+        return {private_init, generate_from_n_evaluations<N, datapar_member_type<T>>(
+                                  [&](auto i) { return static_cast<T>(abs(x.d[i])); })};
     }
 
     // increment & decrement{{{2
