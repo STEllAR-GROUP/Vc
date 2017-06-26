@@ -467,11 +467,13 @@ struct avx_datapar_impl : public generic_datapar_impl<avx_datapar_impl> {
                                                    mask<T> k) Vc_NOEXCEPT_OR_IN_TEST
     {
         //TODO: detail::masked_store(mem, v.v(), k.d.v(), f);
-        execute_n_times<size<T>()>([&](auto i) {
-            if (k.d.m(i)) {
-                mem[i] = static_cast<T>(v.d.m(i));
-            }
-        });
+        /* std::cout << "avx masked_store!" << std::endl; */
+        /* execute_n_times<size<T>()>([&](auto i) { */
+        /*     if (k.d.m(i)) { */
+        /*         mem[i] = static_cast<T>(v.d.m(i)); */
+        /*     } */
+        /* }); */
+        _mm256_maskstore_pd(mem, _mm256_castpd_si256(data(k)), v.d);
     }
 
     // negation {{{2
