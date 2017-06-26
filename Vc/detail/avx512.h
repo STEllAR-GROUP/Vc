@@ -512,12 +512,13 @@ struct avx512_datapar_impl : public generic_datapar_impl<avx512_datapar_impl> {
     template <class T, class U, class F>
     static Vc_INTRINSIC void masked_store(datapar<T> v, U *mem, F, mask<T> k) Vc_NOEXCEPT_OR_IN_TEST
     {
-        //TODO
-        execute_n_times<size<T>()>([&](auto i) {
-            if (k.d.m(i)) {
-                mem[i] = static_cast<T>(v.d.m(i));
-            }
-        });
+        /* //TODO */
+        /* execute_n_times<size<T>()>([&](auto i) { */
+        /*     if (k.d.m(i)) { */
+        /*         mem[i] = static_cast<T>(v.d.m(i)); */
+        /*     } */
+        /* }); */
+        _mm512_mask_store_pd(mem, data(k), v.d);
     }
 
     // negation {{{2
