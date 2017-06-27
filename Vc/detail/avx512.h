@@ -518,7 +518,7 @@ struct avx512_datapar_impl : public generic_datapar_impl<avx512_datapar_impl> {
         /*         mem[i] = static_cast<T>(v.d.m(i)); */
         /*     } */
         /* }); */
-        _mm512_mask_store_pd(mem, data(k), v.d);
+        _mm512_mask_storeu_pd(mem, data(k), v.d);
     }
 
     // negation {{{2
