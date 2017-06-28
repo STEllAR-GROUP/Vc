@@ -38,6 +38,12 @@ template <class Derived> struct generic_datapar_impl {
     template <size_t N> using size_tag = size_constant<N>;
     template <class T> using type_tag = T *;
 
+    template <class T, size_t N>
+    static Vc_INTRINSIC auto Vc_VDECL datapar(Storage<T, N> x)
+    {
+        return Derived::make_datapar(x);
+    }
+
     // adjust_for_long{{{2
     template <size_t Size>
     static Vc_INTRINSIC Storage<equal_int_type_t<long>, Size> Vc_VDECL
@@ -57,14 +63,6 @@ template <class Derived> struct generic_datapar_impl {
         return x;
     }
 
-    template <class T, class A, class U>
-    static Vc_INTRINSIC Vc::datapar<T, A> make_datapar(const U &x)
-    {
-        using traits = typename Vc::datapar<T, A>::traits;
-        using V = typename traits::datapar_member_type;
-        return {private_init, static_cast<V>(x)};
-    }
-
     // generator {{{2
     template <class F, class T, size_t N>
     static Vc_INTRINSIC Storage<T, N> generator(F &&gen, type_tag<T>, size_tag<N>)
@@ -74,100 +72,152 @@ template <class Derived> struct generic_datapar_impl {
     }
 
     // complement {{{2
-    template <class T, class A>
-    static Vc_INTRINSIC Vc::datapar<T, A> complement(const Vc::datapar<T, A> &x) noexcept
+    template <class T, size_t N>
+    static Vc_INTRINSIC Storage<T, N> complement(Storage<T, N> x) noexcept
     {
-        using detail::x86::complement;
-        return make_datapar<T, A>(complement(adjust_for_long(detail::data(x))));
+        return static_cast<typename Storage<T, N>::VectorType>(
+            detail::x86::complement(adjust_for_long(x)));
     }
 
     // unary minus {{{2
-    template <class T, class A>
-    static Vc_INTRINSIC Vc::datapar<T, A> unary_minus(const Vc::datapar<T, A> &x) noexcept
+    template <class T, size_t N>
+    static Vc_INTRINSIC Storage<T, N> unary_minus(Storage<T, N> x) noexcept
     {
         using detail::x86::unary_minus;
-        return make_datapar<T, A>(unary_minus(adjust_for_long(detail::data(x))));
+        return static_cast<typename Storage<T, N>::VectorType>(
+            unary_minus(adjust_for_long(x)));
     }
 
     // arithmetic operators {{{2
 #define Vc_ARITHMETIC_OP_(name_)                                                         \
-    template <class T, class A>                                                          \
-    static Vc_INTRINSIC datapar<T, A> Vc_VDECL name_(datapar<T, A> x, datapar<T, A> y)   \
+    template <size_t N>                                                                  \
+    static Vc_INTRINSIC Storage<long, N> Vc_VDECL name_(Storage<long, N> x,              \
+                                                        Storage<long, N> y)              \
     {                                                                                    \
-        return make_datapar<T, A>(                                                       \
-            detail::name_(adjust_for_long(x.d), adjust_for_long(y.d)));                  \
+        using Adjusted = detail::Storage<equal_int_type_t<long>, N>;                     \
+        return static_cast<typename Adjusted::VectorType>(                               \
+            detail::name_(Adjusted(x.v()), Adjusted(y.v())));                            \
+    }                                                                                    \
+    template <size_t N>                                                                  \
+    static Vc_INTRINSIC Storage<unsigned long, N> Vc_VDECL name_(                        \
+        Storage<unsigned long, N> x, Storage<unsigned long, N> y)                        \
+    {                                                                                    \
+        using Adjusted = detail::Storage<equal_int_type_t<unsigned long>, N>;            \
+        return static_cast<typename Adjusted::VectorType>(                               \
+            detail::name_(Adjusted(x.v()), Adjusted(y.v())));                            \
+    }                                                                                    \
+    template <class T, size_t N>                                                         \
+    static Vc_INTRINSIC Storage<T, N> Vc_VDECL name_(Storage<T, N> x, Storage<T, N> y)   \
+    {                                                                                    \
+        return detail::name_(x, y);                                                      \
     }                                                                                    \
     Vc_NOTHING_EXPECTING_SEMICOLON
-
-    Vc_ARITHMETIC_OP_(plus);
-    Vc_ARITHMETIC_OP_(minus);
-    Vc_ARITHMETIC_OP_(multiplies);
-    Vc_ARITHMETIC_OP_(divides);
-    Vc_ARITHMETIC_OP_(modulus);
-    Vc_ARITHMETIC_OP_(bit_and);
-    Vc_ARITHMETIC_OP_(bit_or);
-    Vc_ARITHMETIC_OP_(bit_xor);
-    Vc_ARITHMETIC_OP_(bit_shift_left);
-    Vc_ARITHMETIC_OP_(bit_shift_right);
+        Vc_ARITHMETIC_OP_(plus);
+        Vc_ARITHMETIC_OP_(minus);
+        Vc_ARITHMETIC_OP_(multiplies);
+        Vc_ARITHMETIC_OP_(divides);
+        Vc_ARITHMETIC_OP_(modulus);
+        Vc_ARITHMETIC_OP_(bit_and);
+        Vc_ARITHMETIC_OP_(bit_or);
+        Vc_ARITHMETIC_OP_(bit_xor);
+        Vc_ARITHMETIC_OP_(bit_shift_left);
+        Vc_ARITHMETIC_OP_(bit_shift_right);
 #undef Vc_ARITHMETIC_OP_
-    template <class T, class A>
-    static Vc_INTRINSIC datapar<T, A> Vc_VDECL bit_shift_left(datapar<T, A> x, int y)
+
+    template <class T, size_t N>
+    static Vc_INTRINSIC Storage<T, N> Vc_VDECL bit_shift_left(Storage<T, N> x, int y)
     {
-        return make_datapar<T, A>(detail::bit_shift_left(adjust_for_long(x.d), y));
+        return static_cast<typename Storage<T, N>::VectorType>(
+            detail::bit_shift_left(adjust_for_long(x), y));
     }
-    template <class T, class A>
-    static Vc_INTRINSIC datapar<T, A> Vc_VDECL bit_shift_right(datapar<T, A> x, int y)
+    template <class T, size_t N>
+    static Vc_INTRINSIC Storage<T, N> Vc_VDECL bit_shift_right(Storage<T, N> x, int y)
     {
-        return make_datapar<T, A>(detail::bit_shift_right(adjust_for_long(x.d), y));
+        return static_cast<typename Storage<T, N>::VectorType>(
+            detail::bit_shift_right(adjust_for_long(x), y));
     }
 
     // sqrt {{{2
-    template <class T, class A>
-    static Vc_INTRINSIC Vc::datapar<T, A> sqrt(const Vc::datapar<T, A> &x) noexcept
+    template <class T, size_t N>
+    static Vc_INTRINSIC Storage<T, N> sqrt(Storage<T, N> x) noexcept
     {
         using detail::x86::sqrt;
-        return make_datapar<T, A>(sqrt(adjust_for_long(detail::data(x))));
+        return sqrt(adjust_for_long(x));
     }
 
     // abs {{{2
-    template <class T, class A>
-    static Vc_INTRINSIC Vc::datapar<T, A> abs(const Vc::datapar<T, A> &x) noexcept
+    template <class T, size_t N>
+    static Vc_INTRINSIC Storage<T, N> abs(Storage<T, N> x) noexcept
     {
         using detail::x86::abs;
-        return make_datapar<T, A>(abs(adjust_for_long(detail::data(x))));
+        return abs(adjust_for_long(x));
     }
 
     // increment & decrement{{{2
     template <class T, size_t N> static Vc_INTRINSIC void increment(Storage<T, N> &x)
     {
-        x = detail::plus(x, Storage<T, N>(Derived::broadcast(T(1), size_tag<N>())));
+        x = plus(x, Storage<T, N>(Derived::broadcast(T(1), size_tag<N>())));
     }
-    template <size_t N> static Vc_INTRINSIC void increment(Storage<long, N> &x)
-    {
-        x = detail::plus(adjust_for_long(x), Storage<equal_int_type_t<long>, N>(
-                                                 Derived::broadcast(1L, size_tag<N>())));
-    }
-    template <size_t N> static Vc_INTRINSIC void increment(Storage<ulong, N> &x)
-    {
-        x = detail::plus(adjust_for_long(x), Storage<equal_int_type_t<ulong>, N>(
-                                                 Derived::broadcast(1L, size_tag<N>())));
-    }
-
     template <class T, size_t N> static Vc_INTRINSIC void decrement(Storage<T, N> &x)
     {
-        x = detail::minus(x, Storage<T, N>(Derived::broadcast(T(1), size_tag<N>())));
+        x = minus(x, Storage<T, N>(Derived::broadcast(T(1), size_tag<N>())));
     }
-    template <size_t N> static Vc_INTRINSIC void decrement(Storage<long, N> &x)
+
+    // masked_assign{{{2
+    template <class T, class K, size_t N>
+    static Vc_INTRINSIC void Vc_VDECL masked_assign(Storage<K, N> k, Storage<T, N> &lhs,
+                                             detail::id<Storage<T, N>> rhs)
     {
-        x = detail::minus(adjust_for_long(x), Storage<equal_int_type_t<long>, N>(
-                                                  Derived::broadcast(1L, size_tag<N>())));
+        lhs = detail::x86::blend(k, lhs, rhs);
     }
-    template <size_t N> static Vc_INTRINSIC void decrement(Storage<ulong, N> &x)
+    template <class T, class K, size_t N>
+    static Vc_INTRINSIC void Vc_VDECL masked_assign(Storage<K, N> k, Storage<T, N> &lhs,
+                                                    detail::id<T> rhs)
     {
-        x = detail::minus(adjust_for_long(x), Storage<equal_int_type_t<ulong>, N>(
-                                                  Derived::broadcast(1L, size_tag<N>())));
+#ifdef __GNUC__
+        if (__builtin_constant_p(rhs) && rhs == 0 && std::is_same<K, T>::value) {
+            lhs = x86::andnot_(k, lhs);
+            return;
+        }
+#endif  // __GNUC__
+        lhs =
+            detail::x86::blend(k, lhs, x86::broadcast(rhs, size_constant<sizeof(lhs)>()));
     }
+
+    // masked_cassign {{{2
+    template <template <typename> class Op, class T, class K, size_t N>
+    static Vc_INTRINSIC void Vc_VDECL masked_cassign(const Storage<K, N> k,
+                                                     Storage<T, N> &lhs,
+                                                     const detail::id<Storage<T, N>> rhs)
+    {
+        lhs = detail::x86::blend(k, lhs,
+                                 detail::data(Op<void>{}(datapar(lhs), datapar(rhs))));
+    }
+
+    template <template <typename> class Op, class T, class K, size_t N>
+    static Vc_INTRINSIC void Vc_VDECL masked_cassign(const Storage<K, N> k,
+                                                     Storage<T, N> &lhs,
+                                                     const detail::id<T> rhs)
+    {
+        lhs = detail::x86::blend(
+            k, lhs,
+            detail::data(Op<void>{}(
+                datapar(lhs), datapar<T, N>(Derived::broadcast(rhs, size_tag<N>())))));
+    }
+
+    // masked_unary {{{2
+    template <template <typename> class Op, class T, class K, size_t N>
+    static Vc_INTRINSIC Storage<T, N> Vc_VDECL masked_unary(const Storage<K, N> k,
+                                                            const Storage<T, N> v)
+    {
+        auto vv = datapar(v);
+        Op<decltype(vv)> op;
+        return detail::x86::blend(k, v, detail::data(op(vv)));
+    }
+
+    //}}}2
 };
+
 // mask impl {{{1
 template <class abi, template <class> class mask_member_type> struct generic_mask_impl {
     // member types {{{2
@@ -176,26 +226,25 @@ template <class abi, template <class> class mask_member_type> struct generic_mas
     template <class T> using mask = Vc::mask<T, abi>;
 
     // masked load {{{2
-    template <class T, class F>
-    static inline void Vc_VDECL masked_load(mask<T> &merge, mask<T> mask, const bool *mem,
-                                            F) noexcept
+    template <class T, size_t N, class F>
+    static inline void Vc_VDECL masked_load(Storage<T, N> &merge, Storage<T, N> mask,
+                                            const bool *mem, F) noexcept
     {
-        constexpr auto N = datapar_size_v<T, abi>;
         detail::execute_n_times<N>([&](auto i) {
-            if (detail::data(mask)[i]) {
-                detail::data(merge).set(i, MaskBool<sizeof(T)>{mem[i]});
+            if (mask[i]) {
+                merge.set(i, MaskBool<sizeof(T)>{mem[i]});
             }
         });
     }
 
     // masked store {{{2
-    template <class T, class F>
-    static inline void Vc_VDECL masked_store(mask<T> v, bool *mem, F, mask<T> k) noexcept
+    template <class T, size_t N, class F>
+    static inline void Vc_VDECL masked_store(const Storage<T, N> v, bool *mem, F,
+                                             const Storage<T, N> k) noexcept
     {
-        constexpr auto N = datapar_size_v<T, abi>;
         detail::execute_n_times<N>([&](auto i) {
-            if (detail::data(k)[i]) {
-                mem[i] = detail::data(v)[i];
+            if (k[i]) {
+                mem[i] = v[i];
             }
         });
     }
@@ -260,6 +309,18 @@ template <class abi, template <class> class mask_member_type> struct generic_mas
     template <size_t N, class T>
     static Vc_INTRINSIC mask_member_type<T> from_bitset(std::bitset<N> bits, type_tag<T>)
     {
+#ifdef Vc_HAVE_AVX512BW
+        if (sizeof(T) <= 2u) {
+            return detail::intrin_cast<detail::intrinsic_type<T, N>>(
+                x86::convert_mask<sizeof(T), sizeof(mask_member_type<T>)>(bits));
+        }
+#endif  // Vc_HAVE_AVX512BW
+#ifdef Vc_HAVE_AVX512DQ
+        if (sizeof(T) >= 4u) {
+            return detail::intrin_cast<detail::intrinsic_type<T, N>>(
+                x86::convert_mask<sizeof(T), sizeof(mask_member_type<T>)>(bits));
+        }
+#endif  // Vc_HAVE_AVX512DQ
         using U = std::conditional_t<sizeof(T) == 8, ullong,
                   std::conditional_t<sizeof(T) == 4, uint,
                   std::conditional_t<sizeof(T) == 2, ushort,
@@ -283,53 +344,33 @@ template <class abi, template <class> class mask_member_type> struct generic_mas
                 detail::data(tmp != V()));
         }
     }
+
+    // masked_assign{{{2
+    template <class T, size_t N>
+    static Vc_INTRINSIC void Vc_VDECL masked_assign(Storage<T, N> k, Storage<T, N> &lhs,
+                                                    detail::id<Storage<T, N>> rhs)
+    {
+        lhs = detail::x86::blend(k, lhs, rhs);
+    }
+    template <class T, size_t N>
+    static Vc_INTRINSIC void Vc_VDECL masked_assign(Storage<T, N> k, Storage<T, N> &lhs,
+                                                    bool rhs)
+    {
+#ifdef __GNUC__
+        if (__builtin_constant_p(rhs)) {
+            if (rhs == false) {
+                lhs = x86::andnot_(k, lhs);
+            } else {
+                lhs = x86::or_(k, lhs);
+            }
+            return;
+        }
+#endif  // __GNUC__
+        lhs = detail::x86::blend(k, lhs, detail::data(mask<T>(rhs)));
+    }
+
+    //}}}2
 };
-
-// where implementation {{{1
-template <class T, class A>
-Vc_INTRINSIC void Vc_VDECL masked_assign(mask<T, A> k, datapar<T, A> &lhs,
-                                         const detail::id<datapar<T, A>> &rhs)
-{
-    detail::data(lhs) =
-        detail::x86::blend(detail::data(k), detail::data(lhs), detail::data(rhs));
-}
-
-template <class T, class A>
-Vc_INTRINSIC void Vc_VDECL masked_assign(mask<T, A> k, mask<T, A> &lhs,
-                                         const detail::id<mask<T, A>> &rhs)
-{
-    detail::data(lhs) =
-        detail::x86::blend(detail::data(k), detail::data(lhs), detail::data(rhs));
-}
-
-template <template <typename> class Op, typename T, class A,
-          int = 1  // the int parameter is used to disambiguate the function template
-                   // specialization for the avx512 ABI
-          >
-Vc_INTRINSIC void Vc_VDECL masked_cassign(mask<T, A> k, datapar<T, A> &lhs,
-                                          const datapar<T, A> rhs)
-{
-    detail::data(lhs) = detail::x86::blend(detail::data(k), detail::data(lhs),
-                                           detail::data(Op<void>{}(lhs, rhs)));
-}
-
-template <template <typename> class Op, typename T, class A, class U>
-Vc_INTRINSIC enable_if<std::is_convertible<U, datapar<T, A>>::value, void> Vc_VDECL
-masked_cassign(mask<T, A> k, datapar<T, A> &lhs, const U &rhs)
-{
-    masked_cassign<Op>(k, lhs, datapar<T, A>(rhs));
-}
-
-template <template <typename> class Op, typename T, class A,
-          int = 1  // the int parameter is used to disambiguate the function template
-                   // specialization for the avx512 ABI
-          >
-Vc_INTRINSIC datapar<T, A> Vc_VDECL masked_unary(mask<T, A> k, datapar<T, A> v)
-{
-    Op<datapar<T, A>> op;
-    return static_cast<datapar<T, A>>(
-        detail::x86::blend(detail::data(k), detail::data(v), detail::data(op(v))));
-}
 
 //}}}1
 }  // namespace detail

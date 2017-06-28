@@ -445,7 +445,7 @@ protected:
     friend Vc_INTRINSIC const M &get_mask(const const_where_expression &x) { return x.k; }
     friend Vc_INTRINSIC T &get_lvalue(const_where_expression &x) { return x.d; }
     friend Vc_INTRINSIC const T &get_lvalue(const const_where_expression &x) { return x.d; }
-    std::conditional_t<std::is_same<M, bool>::value, const M, const M &> k;
+    const M &k;
     T &d;
 
 public:
@@ -456,8 +456,8 @@ public:
 
     Vc_INTRINSIC V operator-() const &&
     {
-        using detail::masked_unary;
-        return masked_unary<std::negate>(k, d);
+        return V(detail::get_impl_t<V>::template masked_unary<std::negate>(
+            detail::data(k), detail::data(d)));
     }
 
     template <class U, class Flags>
@@ -465,7 +465,7 @@ public:
     memload(const detail::loadstore_ptr_type<U, value_type> *mem, Flags f) const &&
     {
         V r = d;
-        detail::get_impl_t<V>::masked_load(r, k, mem, f);
+        detail::get_impl_t<V>::masked_load(detail::data(r), detail::data(k), mem, f);
         return r;
     }
 
@@ -473,7 +473,49 @@ public:
     Vc_INTRINSIC void memstore(detail::loadstore_ptr_type<U, value_type> *mem,
                                Flags f) const &&
     {
-        detail::get_impl_t<V>::masked_store(d, mem, f, k);
+        detail::get_impl_t<V>::masked_store(detail::data(d), mem, f, detail::data(k));
+    }
+};
+
+template <typename T> class const_where_expression<bool, T>
+{
+    using M = bool;
+    using V = std::remove_const_t<T>;
+    struct Wrapper {
+        using value_type = V;
+    };
+
+protected:
+    using value_type =
+        typename std::conditional_t<std::is_arithmetic<V>::value, Wrapper, V>::value_type;
+    friend Vc_INTRINSIC const M &get_mask(const const_where_expression &x) { return x.k; }
+    friend Vc_INTRINSIC T &get_lvalue(const_where_expression &x) { return x.d; }
+    friend Vc_INTRINSIC const T &get_lvalue(const const_where_expression &x) { return x.d; }
+    const bool k;
+    T &d;
+
+public:
+    const_where_expression(const const_where_expression &) = delete;
+    const_where_expression &operator=(const const_where_expression &) = delete;
+
+    Vc_INTRINSIC const_where_expression(const bool kk, T &dd) : k(kk), d(dd) {}
+
+    Vc_INTRINSIC V operator-() const && { return k ? -d : d; }
+
+    template <class U, class Flags>
+    Vc_NODISCARD Vc_INTRINSIC V
+    memload(const detail::loadstore_ptr_type<U, value_type> *mem, Flags) const &&
+    {
+        return k ? static_cast<V>(mem[0]) : d;
+    }
+
+    template <class U, class Flags>
+    Vc_INTRINSIC void memstore(detail::loadstore_ptr_type<U, value_type> *mem,
+                               Flags) const &&
+    {
+        if (k) {
+            mem[0] = d;
+        }
     }
 };
 
@@ -484,6 +526,8 @@ class where_expression : public const_where_expression<M, T>
     using typename const_where_expression<M, T>::value_type;
     using const_where_expression<M, T>::k;
     using const_where_expression<M, T>::d;
+    static_assert(std::is_same<typename M::abi_type, typename T::abi_type>::value, "");
+    static_assert(M::size() == T::size(), "");
 
 public:
     where_expression(const where_expression &) = delete;
@@ -496,78 +540,50 @@ public:
 
     template <class U> Vc_INTRINSIC void operator=(U &&x)
     {
-        using detail::masked_assign;
-        masked_assign(k, d, std::forward<U>(x));
+        Vc::detail::get_impl_t<T>::masked_assign(
+            detail::data(k), detail::data(d),
+            detail::to_value_type_or_member_type<T>(std::forward<U>(x)));
     }
-    template <class U> Vc_INTRINSIC void operator+=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::plus>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator-=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::minus>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator*=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::multiplies>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator/=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::divides>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator%=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::modulus>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator&=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::bit_and>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator|=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::bit_or>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator^=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<std::bit_xor>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator<<=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<detail::shift_left>(k, d, std::forward<U>(x));
-    }
-    template <class U> Vc_INTRINSIC void operator>>=(U &&x)
-    {
-        using detail::masked_cassign;
-        masked_cassign<detail::shift_right>(k, d, std::forward<U>(x));
-    }
+
+#define Vc_OP_(op_, name_)                                                               \
+    template <class U> Vc_INTRINSIC void operator op_##=(U &&x)                          \
+    {                                                                                    \
+        Vc::detail::get_impl_t<T>::template masked_cassign<name_>(                       \
+            detail::data(k), detail::data(d),                                            \
+            detail::to_value_type_or_member_type<T>(std::forward<U>(x)));                \
+    }                                                                                    \
+    Vc_NOTHING_EXPECTING_SEMICOLON
+    Vc_OP_(+, std::plus);
+    Vc_OP_(-, std::minus);
+    Vc_OP_(*, std::multiplies);
+    Vc_OP_(/, std::divides);
+    Vc_OP_(%, std::modulus);
+    Vc_OP_(&, std::bit_and);
+    Vc_OP_(|, std::bit_or);
+    Vc_OP_(^, std::bit_xor);
+    Vc_OP_(<<, detail::shift_left);
+    Vc_OP_(>>, detail::shift_right);
+#undef Vc_OP_
+
     Vc_INTRINSIC void operator++()
     {
-        using detail::masked_unary;
-        d = masked_unary<detail::increment>(k, d);
+        detail::data(d) = detail::get_impl_t<T>::template masked_unary<detail::increment>(
+            detail::data(k), detail::data(d));
     }
     Vc_INTRINSIC void operator++(int)
     {
-        using detail::masked_unary;
-        d = masked_unary<detail::increment>(k, d);
+        detail::data(d) = detail::get_impl_t<T>::template masked_unary<detail::increment>(
+            detail::data(k), detail::data(d));
     }
     Vc_INTRINSIC void operator--()
     {
-        using detail::masked_unary;
-        d = masked_unary<detail::decrement>(k, d);
+        detail::data(d) = detail::get_impl_t<T>::template masked_unary<detail::decrement>(
+            detail::data(k), detail::data(d));
     }
     Vc_INTRINSIC void operator--(int)
     {
-        using detail::masked_unary;
-        d = masked_unary<detail::decrement>(k, d);
+        detail::data(d) = detail::get_impl_t<T>::template masked_unary<detail::decrement>(
+            detail::data(k), detail::data(d));
     }
 
     // intentionally hides const_where_expression::memload
@@ -575,7 +591,7 @@ public:
     Vc_INTRINSIC void memload(const detail::loadstore_ptr_type<U, value_type> *mem,
                               Flags f)
     {
-        detail::get_impl_t<T>::masked_load(d, k, mem, f);
+        detail::get_impl_t<T>::masked_load(detail::data(d), detail::data(k), mem, f);
     }
 
 #ifdef Vc_EXPERIMENTAL
@@ -603,6 +619,58 @@ public:
         return std::move(*this);
     }
 #endif  // Vc_EXPERIMENTAL
+};
+
+template <typename T>
+class where_expression<bool, T> : public const_where_expression<bool, T>
+{
+    using M = bool;
+    using typename const_where_expression<M, T>::value_type;
+    using const_where_expression<M, T>::k;
+    using const_where_expression<M, T>::d;
+
+public:
+    where_expression(const where_expression &) = delete;
+    where_expression &operator=(const where_expression &) = delete;
+
+    Vc_INTRINSIC where_expression(const M &kk, T &dd)
+        : const_where_expression<M, T>(kk, dd)
+    {
+    }
+
+#define Vc_OP_(op_)                                                                      \
+    template <class U> Vc_INTRINSIC void operator op_(U &&x)                             \
+    {                                                                                    \
+        if (k) {                                                                         \
+            d op_ std::forward<U>(x);                                                    \
+        }                                                                                \
+    }                                                                                    \
+    Vc_NOTHING_EXPECTING_SEMICOLON
+    Vc_OP_(=);
+    Vc_OP_(+=);
+    Vc_OP_(-=);
+    Vc_OP_(*=);
+    Vc_OP_(/=);
+    Vc_OP_(%=);
+    Vc_OP_(&=);
+    Vc_OP_(|=);
+    Vc_OP_(^=);
+    Vc_OP_(<<=);
+    Vc_OP_(>>=);
+#undef Vc_OP_
+    Vc_INTRINSIC void operator++()    { if (k) { ++d; } }
+    Vc_INTRINSIC void operator++(int) { if (k) { ++d; } }
+    Vc_INTRINSIC void operator--()    { if (k) { --d; } }
+    Vc_INTRINSIC void operator--(int) { if (k) { --d; } }
+
+    // intentionally hides const_where_expression::memload
+    template <class U, class Flags>
+    Vc_INTRINSIC void memload(const detail::loadstore_ptr_type<U, value_type> *mem, Flags)
+    {
+        if (k) {
+            d = mem[0];
+        }
+    }
 };
 
 #ifdef Vc_EXPERIMENTAL
@@ -710,8 +778,10 @@ Vc_INTRINSIC typename V::value_type reduce(
         detail::default_neutral_element<typename V::value_type, BinaryOperation>::value,
     BinaryOperation binary_op = BinaryOperation())
 {
-    std::remove_cv_t<V> tmp = neutral_element;
-    masked_assign(get_mask(x), tmp, get_lvalue(x));
+    using VV = std::remove_cv_t<V>;
+    VV tmp = neutral_element;
+    detail::get_impl_t<VV>::masked_assign(detail::data(get_mask(x)), detail::data(tmp),
+                                          detail::data(get_lvalue(x)));
     return reduce(tmp, binary_op);
 }
 
@@ -743,13 +813,15 @@ Vc_INTRINSIC datapar<T, A> clamp(const datapar<T, A> &v, const datapar<T, A> &lo
 template <class T, class Abi>
 Vc_INTRINSIC datapar<T, Abi> sqrt(const datapar<T, Abi> &x)
 {
-    return detail::get_impl_t<datapar<T, Abi>>::sqrt(x);
+    return static_cast<datapar<T, Abi>>(
+        detail::get_impl_t<datapar<T, Abi>>::sqrt(data(x)));
 }
 
 template <class T, class Abi>
 Vc_INTRINSIC datapar<T, Abi> abs(const datapar<detail::SignedArithmetic<T>, Abi> &x)
 {
-    return detail::get_impl_t<datapar<T, Abi>>::abs(x);
+    return static_cast<datapar<T, Abi>>(
+        detail::get_impl_t<datapar<T, Abi>>::abs(data(x)));
 }
 
 Vc_VERSIONED_NAMESPACE_END

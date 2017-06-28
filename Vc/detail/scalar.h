@@ -70,12 +70,11 @@ struct scalar_datapar_impl {
     }
 
     // masked load {{{2
-    template <class T, class A, class U, class F>
-    static inline void masked_load(datapar<T> &merge, const Vc::mask<T, A> &k,
-                                   const U *mem, F) noexcept
+    template <class T, class U, class F>
+    static inline void masked_load(T &merge, bool k, const U *mem, F) noexcept
     {
-        if (k.d) {
-            merge.d = static_cast<T>(mem[0]);
+        if (k) {
+            merge = static_cast<T>(mem[0]);
         }
     }
 
@@ -87,20 +86,16 @@ struct scalar_datapar_impl {
     }
 
     // masked store {{{2
-    template <class T, class A, class U, class F>
-    static inline void masked_store(const datapar<T> &v, U *mem, F,
-                                    const Vc::mask<T, A> &k) noexcept
+    template <class T, class U, class F>
+    static inline void masked_store(const T v, U *mem, F, const bool k) noexcept
     {
-        if (k[0]) {
-            mem[0] = v.d;
+        if (k) {
+            mem[0] = v;
         }
     }
 
     // negation {{{2
-    template <class T> static inline mask<T> negate(const datapar<T> &x) noexcept
-    {
-        return {private_init, !x.d};
-    }
+    template <class T> static inline bool negate(T x) noexcept { return !x; }
 
     // reductions {{{2
     template <class T, class BinaryOperation>
@@ -123,113 +118,81 @@ struct scalar_datapar_impl {
     }
 
     // complement {{{2
-    template <class T> static inline datapar<T> complement(const datapar<T> &x) noexcept
+    template <class T> static inline T complement(T x) noexcept
     {
-        return {private_init, static_cast<T>(~x.d)};
+        return static_cast<T>(~x);
     }
 
     // unary minus {{{2
-    template <class T> static inline datapar<T> unary_minus(const datapar<T> &x) noexcept
+    template <class T> static inline T unary_minus(T x) noexcept
     {
-        return {private_init, static_cast<T>(-x.d)};
+        return static_cast<T>(-x);
     }
 
     // arithmetic operators {{{2
-    template <class T>
-    static inline datapar<T> plus(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T plus(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) +
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) +
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> minus(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T minus(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) -
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) -
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> multiplies(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T multiplies(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) *
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) *
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> divides(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T divides(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) /
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) /
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> modulus(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T modulus(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) %
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) %
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> bit_and(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T bit_and(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) &
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) &
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> bit_or(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T bit_or(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) |
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) |
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> bit_xor(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T bit_xor(T x, T y)
     {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) ^
-                                             detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) ^
+                              detail::promote_preserving_unsigned(y));
     }
 
-    template <class T>
-    static inline datapar<T> bit_shift_left(const datapar<T> &x, const datapar<T> &y)
+    template <class T> static inline T bit_shift_left(T x, int y)
     {
-        return {private_init,
-                static_cast<T>(detail::promote_preserving_unsigned(x.d)
-                               << detail::promote_preserving_unsigned(y.d))};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) << y);
     }
 
-    template <class T> static inline datapar<T> bit_shift_left(const datapar<T> &x, int y)
+    template <class T> static inline T bit_shift_right(T x, int y)
     {
-        return {private_init,
-                static_cast<T>(detail::promote_preserving_unsigned(x.d) << y)};
-    }
-
-    template <class T>
-    static inline datapar<T> bit_shift_right(const datapar<T> &x, const datapar<T> &y)
-    {
-        return {private_init, static_cast<T>(detail::promote_preserving_unsigned(x.d) >>
-                                             detail::promote_preserving_unsigned(y.d))};
-    }
-
-    template <class T>
-    static inline datapar<T> bit_shift_right(const datapar<T> &x, int y)
-    {
-        return {private_init,
-                static_cast<T>(detail::promote_preserving_unsigned(x.d) >> y)};
+        return static_cast<T>(detail::promote_preserving_unsigned(x) >> y);
     }
 
     // abs{{{2
-    template <class T> static inline datapar<T> abs(datapar<T> x)
-    {
-        return {private_init, T(std::abs(data(x)))};
-    }
+    template <class T> static inline T abs(T x) { return T(std::abs(x)); }
 
     // sqrt{{{2
-    template <class T> static inline datapar<T> sqrt(datapar<T> x)
-    {
-        return {private_init, std::sqrt(data(x))};
-    }
+    template <class T> static inline T sqrt(T x) { return std::sqrt(x); }
 
     // increment & decrement{{{2
     template <class T> static inline void increment(T &x) { ++x; }
@@ -237,9 +200,9 @@ struct scalar_datapar_impl {
 
     // compares {{{2
 #define Vc_CMP_OPERATIONS(cmp_)                                                          \
-    template <class V> static inline typename V::mask_type cmp_(const V &x, const V &y)  \
+    template <class T> static inline bool cmp_(T x, T y)                                 \
     {                                                                                    \
-        return {private_init, std::cmp_<typename V::value_type>()(x.d, y.d)};            \
+        return std::cmp_<T>()(x, y);                                                     \
     }                                                                                    \
     Vc_NOTHING_EXPECTING_SEMICOLON
     Vc_CMP_OPERATIONS(equal_to);
@@ -251,18 +214,43 @@ struct scalar_datapar_impl {
 #undef Vc_CMP_OPERATIONS
 
     // smart_reference access {{{2
-    template <class T> static T get(const datapar<T> &v, int i) noexcept
+    template <class T> static T get(const T v, int i) noexcept
     {
         Vc_ASSERT(i == 0);
         unused(i);
-        return v.d;
+        return v;
     }
-    template <class T, class U> static void set(datapar<T> &v, int i, U &&x) noexcept
+    template <class T, class U> static void set(T &v, int i, U &&x) noexcept
     {
         Vc_ASSERT(i == 0);
         unused(i);
-        v.d = std::forward<U>(x);
+        v = std::forward<U>(x);
     }
+
+    // masked_assign {{{2
+    template <typename T> static Vc_INTRINSIC void masked_assign(bool k, T &lhs, T rhs)
+    {
+        if (k) {
+            lhs = rhs;
+        }
+    }
+
+    // masked_cassign {{{2
+    template <template <typename> class Op, typename T>
+    static Vc_INTRINSIC void masked_cassign(const bool k, T &lhs, const T rhs)
+    {
+        if (k) {
+            lhs = Op<T>{}(lhs, rhs);
+        }
+    }
+
+    // masked_unary {{{2
+    template <template <typename> class Op, typename T>
+    static Vc_INTRINSIC T masked_unary(const bool k, const T v)
+    {
+        return static_cast<T>(k ? Op<T>{}(v) : v);
+    }
+
     // }}}2
 };
 
@@ -297,12 +285,12 @@ struct scalar_mask_impl {
     }
 
     // masked load {{{2
-    template <class T, class F>
-    static Vc_INTRINSIC void masked_load(mask<T> &merge, mask<T> mask, const bool *mem,
+    template <class F>
+    static Vc_INTRINSIC void masked_load(bool &merge, bool mask, const bool *mem,
                                          F) noexcept
     {
-        if (detail::data(mask)) {
-            detail::data(merge) = mem[0];
+        if (mask) {
+            merge = mem[0];
         }
     }
 
@@ -313,11 +301,12 @@ struct scalar_mask_impl {
     }
 
     // masked store {{{2
-    template <class T, class F>
-    static Vc_INTRINSIC void masked_store(mask<T> v, bool *mem, F, mask<T> k) noexcept
+    template <class F>
+    static Vc_INTRINSIC void masked_store(const bool v, bool *mem, F,
+                                          const bool k) noexcept
     {
-        if (detail::data(k)) {
-            mem[0] = detail::data(v);
+        if (k) {
+            mem[0] = v;
         }
     }
 
@@ -353,18 +342,27 @@ struct scalar_mask_impl {
     }
 
     // smart_reference access {{{2
-    template <class T> static bool get(const mask<T> &k, int i) noexcept
+    static bool get(const bool k, int i) noexcept
     {
         Vc_ASSERT(i == 0);
         detail::unused(i);
-        return k.d;
+        return k;
     }
-    template <class T> static void set(mask<T> &k, int i, bool x) noexcept
+    static void set(bool &k, int i, bool x) noexcept
     {
         Vc_ASSERT(i == 0);
         detail::unused(i);
-        k.d = x;
+        k = x;
     }
+
+    // masked_assign {{{2
+    static Vc_INTRINSIC void masked_assign(bool k, bool &lhs, bool rhs)
+    {
+        if (k) {
+            lhs = rhs;
+        }
+    }
+
     // }}}2
 };
 
@@ -404,73 +402,6 @@ template <> struct traits<  char, datapar_abi::scalar> : public scalar_traits<  
 
 // }}}1
 }  // namespace detail
-
-// where implementation {{{1
-template <typename T>
-static Vc_INTRINSIC void masked_assign(
-    const mask<T, datapar_abi::scalar> &k, datapar<T, datapar_abi::scalar> &lhs,
-    const detail::id<datapar<T, datapar_abi::scalar>> &rhs)
-{
-    if (detail::data(k)) {
-        detail::data(lhs) = detail::data(rhs);
-    }
-}
-
-template <typename T>
-static Vc_INTRINSIC void masked_assign(
-    const mask<T, datapar_abi::scalar> &k, mask<T, datapar_abi::scalar> &lhs,
-    const detail::id<mask<T, datapar_abi::scalar>> &rhs)
-{
-    if (detail::data(k)) {
-        detail::data(lhs) = detail::data(rhs);
-    }
-}
-
-// Optimization for the case where the RHS is a scalar. No need to broadcast the scalar to a datapar
-// first.
-template <class T, class U>
-static Vc_INTRINSIC
-    enable_if<std::is_convertible<U, datapar<T, datapar_abi::scalar>>::value &&
-                  std::is_arithmetic<U>::value,
-              void>
-    masked_assign(const mask<T, datapar_abi::scalar> &k,
-                  datapar<T, datapar_abi::scalar> &lhs, const U &rhs)
-{
-    if (detail::data(k)) {
-        lhs = rhs;
-    }
-}
-
-template <template <typename> class Op, typename T>
-inline void masked_cassign(const detail::scalar_mask<T> &k,
-                           detail::scalar_datapar<T> &lhs,
-                           const detail::scalar_datapar<T> &rhs)
-{
-    if (detail::data(k)) {
-        detail::data(lhs) = Op<T>{}(detail::data(lhs), detail::data(rhs));
-    }
-}
-
-// Optimization for the case where the RHS is a scalar. No need to broadcast the scalar to a datapar
-// first.
-template <template <typename> class Op, typename T, class U>
-inline enable_if<std::is_convertible<U, detail::scalar_datapar<T>>::value &&
-                     std::is_arithmetic<U>::value,
-                 void>
-masked_cassign(const detail::scalar_mask<T> &k, detail::scalar_datapar<T> &lhs,
-               const U &rhs)
-{
-    if (detail::data(k)) {
-        detail::data(lhs) = Op<T>{}(detail::data(lhs), rhs);
-    }
-}
-
-template <template <typename> class Op, typename T>
-inline detail::scalar_datapar<T> masked_unary(const detail::scalar_mask<T> &k,
-                                              const detail::scalar_datapar<T> &v)
-{
-    return static_cast<T>(detail::data(k) ? Op<T>{}(detail::data(v)) : detail::data(v));
-}
 
 // [mask.reductions] {{{1
 template <class T> inline bool all_of(const detail::scalar_mask<T> &k) { return k[0]; }

@@ -206,6 +206,18 @@ template <size_t Begin> struct tree_reduction<2, Begin> {
     }
 };
 
+// partial_bitset_to_member_type {{{1
+template <class V, size_t N>
+Vc_INTRINSIC auto partial_bitset_to_member_type(std::bitset<N> shifted_bits)
+{
+    static_assert(V::size() <= N, "");
+    using M = typename V::mask_type;
+    using T = typename V::value_type;
+    constexpr T *type_tag = nullptr;
+    return detail::get_impl_t<M>::from_bitset(
+        std::bitset<V::size()>(shifted_bits.to_ullong()), type_tag);
+}
+
 // datapar impl {{{1
 template <int N> struct fixed_size_datapar_impl {
     // member types {{{2
@@ -256,21 +268,22 @@ template <int N> struct fixed_size_datapar_impl {
     }
 
     // masked load {{{2
-    template <class T, class A, class U, class F>
-    static inline void masked_load(datapar<T> &merge, const Vc::mask<T, A> &k,
-                                   const U *mem, F f) Vc_NOEXCEPT_OR_IN_TEST
+    template <class T, class... As, class U, class F>
+    static inline void masked_load(datapar_tuple<T, As...> &merge,
+                                   const mask_member_type bits, const U *mem,
+                                   F f) Vc_NOEXCEPT_OR_IN_TEST
     {
-        const auto bits = k.to_bitset();
-        detail::for_each(data(merge), [&](auto &native, auto offset) {
-                         using M = typename std::remove_reference_t<decltype(native)>::mask_type;
-                         where(M::from_bitset((bits >> offset).to_ullong()), native)
-                             .memload(&mem[offset], f);
-                         });
+        detail::for_each(merge, [&](auto &native, auto offset) {
+            using V = std::decay_t<decltype(native)>;
+            detail::get_impl_t<V>::masked_load(
+                detail::data(native), partial_bitset_to_member_type<V>(bits >> offset),
+                &mem[offset], f);
+        });
     }
 
     // store {{{2
     template <class T, class U, class F>
-    static inline void store(const datapar_member_type<T> &v, U *mem, F f,
+    static inline void store(const datapar_member_type<T> v, U *mem, F f,
                              type_tag<T>) Vc_NOEXCEPT_OR_IN_TEST
     {
         detail::for_each(
@@ -278,34 +291,33 @@ template <int N> struct fixed_size_datapar_impl {
     }
 
     // masked store {{{2
-    template <class T, class A, class U, class F>
-    static inline void masked_store(const datapar<T> &v, U *mem, F f,
-                                    const Vc::mask<T, A> &k) Vc_NOEXCEPT_OR_IN_TEST
+    template <class T, class... As, class U, class F>
+    static inline void masked_store(const datapar_tuple<T, As...> v, U *mem, F f,
+                                    const mask_member_type bits) Vc_NOEXCEPT_OR_IN_TEST
     {
-        const auto bits = k.to_bitset();
-        detail::for_each(data(v), [&](auto native, auto offset) {
-                         using M = typename decltype(native)::mask_type;
-                         where(M::from_bitset((bits >> offset).to_ullong()), native)
-                             .memstore(&mem[offset], f);
-                         });
+        detail::for_each(v, [&](auto native, auto offset) {
+            detail::get_impl_t<decltype(native)>::masked_store(
+                detail::data(native), &mem[offset], f,
+                partial_bitset_to_member_type<decltype(native)>(bits >> offset));
+        });
     }
 
     // negation {{{2
-    template <class T, class A>
-    static inline Vc::mask<T, A> negate(const Vc::datapar<T, A> &x) noexcept
+    template <class T, class... As>
+    static inline mask_member_type negate(datapar_tuple<T, As...> x) noexcept
     {
         mask_member_type bits = 0;
-        for_each(x.d, [&bits](auto native, auto offset) {
+        for_each(x, [&bits](auto native, auto offset) {
             bits |= mask_member_type((!native).to_bitset().to_ullong()) << offset;
         });
-        return {private_init, bits};
+        return bits;
     }
 
     // reductions {{{2
 private:
     template <class T, class... As, class BinaryOperation, size_t... Counts,
               size_t... Begins>
-    static inline T reduce(const datapar_tuple<T, As...> &tup,
+    static inline T reduce(const datapar_tuple<T, As...> tup,
                            const BinaryOperation &binary_op,
                            std::index_sequence<Counts...>, std::index_sequence<Begins...>)
     {
@@ -323,8 +335,7 @@ private:
 
 public:
     template <class T, class BinaryOperation>
-    static inline T reduce(size_tag, const datapar<T> &x,
-                           const BinaryOperation &binary_op)
+    static inline T reduce(size_tag, const datapar<T> x, const BinaryOperation &binary_op)
     {
         using ranges = n_abis_in_tuple<datapar_member_type<T>>;
         return fixed_size_datapar_impl::reduce(x.d, binary_op, typename ranges::counts(),
@@ -333,129 +344,81 @@ public:
 
     // min, max, clamp {{{2
     template <class T>
-    static inline datapar<T> min(const datapar<T> &a, const datapar<T> &b)
+    static inline datapar<T> min(const datapar<T> a, const datapar<T> b)
     {
         return {private_init,
                 apply([](auto aa, auto bb) { return Vc::min(aa, bb); }, a.d, b.d)};
     }
 
     template <class T>
-    static inline datapar<T> max(const datapar<T> &a, const datapar<T> &b)
+    static inline datapar<T> max(const datapar<T> a, const datapar<T> b)
     {
         return {private_init,
                 apply([](auto aa, auto bb) { return Vc::max(aa, bb); }, a.d, b.d)};
     }
 
     // complement {{{2
-    template <class T, class A>
-    static inline Vc::datapar<T, A> complement(const Vc::datapar<T, A> &x) noexcept
+    template <class T, class... As>
+    static inline datapar_tuple<T, As...> complement(datapar_tuple<T, As...> x) noexcept
     {
-        return {private_init, apply([](auto xx) { return ~xx; }, x.d)};
+        return apply([](auto xx) { return ~xx; }, x);
     }
 
     // unary minus {{{2
-    template <class T, class A>
-    static inline Vc::datapar<T, A> unary_minus(const Vc::datapar<T, A> &x) noexcept
+    template <class T, class... As>
+    static inline datapar_tuple<T, As...> unary_minus(datapar_tuple<T, As...> x) noexcept
     {
-        return {private_init, apply([](auto xx) { return -xx; }, x.d)};
+        return apply([](auto xx) { return -xx; }, x);
     }
 
     // arithmetic operators {{{2
 
-    template <class T, class A>
-    static inline Vc::datapar<T, A> plus(const Vc::datapar<T, A> &x,
-                                         const Vc::datapar<T, A> &y)
+#define Vc_FIXED_OP(name_, op_)                                                          \
+    template <class T, class... As>                                                      \
+    static inline datapar_tuple<T, As...> name_(datapar_tuple<T, As...> x,               \
+                                                datapar_tuple<T, As...> y)               \
+    {                                                                                    \
+        return apply([](auto xx, auto yy) { return xx op_ yy; }, x, y);                  \
+    }                                                                                    \
+    Vc_NOTHING_EXPECTING_SEMICOLON
+
+    Vc_FIXED_OP(plus, +);
+    Vc_FIXED_OP(minus, -);
+    Vc_FIXED_OP(multiplies, *);
+    Vc_FIXED_OP(divides, /);
+    Vc_FIXED_OP(modulus, %);
+    Vc_FIXED_OP(bit_and, &);
+    Vc_FIXED_OP(bit_or, |);
+    Vc_FIXED_OP(bit_xor, ^);
+    Vc_FIXED_OP(bit_shift_left, <<);
+    Vc_FIXED_OP(bit_shift_right, >>);
+#undef Vc_FIXED_OP
+
+    template <class T, class... As>
+    static inline datapar_tuple<T, As...> bit_shift_left(datapar_tuple<T, As...> x, int y)
     {
-        return {private_init, apply([](auto xx, auto yy) { return xx + yy; }, x.d, y.d)};
+        return apply([y](auto xx) { return xx << y; }, x);
     }
 
-    template <class T, class A>
-    static inline Vc::datapar<T, A> minus(const Vc::datapar<T, A> &x,
-                                          const Vc::datapar<T, A> &y)
+    template <class T, class... As>
+    static inline datapar_tuple<T, As...> bit_shift_right(datapar_tuple<T, As...> x,
+                                                          int y)
     {
-        return {private_init, apply([](auto xx, auto yy) { return xx - yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> multiplies(const Vc::datapar<T, A> &x,
-                                               const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx * yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> divides(const Vc::datapar<T, A> &x,
-                                            const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx / yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> modulus(const Vc::datapar<T, A> &x,
-                                            const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx % yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> bit_and(const Vc::datapar<T, A> &x,
-                                            const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx & yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> bit_or(const Vc::datapar<T, A> &x,
-                                           const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx | yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> bit_xor(const Vc::datapar<T, A> &x,
-                                            const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx ^ yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> bit_shift_left(const Vc::datapar<T, A> &x,
-                                                   const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx << yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> bit_shift_left(const Vc::datapar<T, A> &x, int y)
-    {
-        return {private_init, apply([y](auto xx) { return xx << y; }, x.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> bit_shift_right(const Vc::datapar<T, A> &x,
-                                                    const Vc::datapar<T, A> &y)
-    {
-        return {private_init, apply([](auto xx, auto yy) { return xx >> yy; }, x.d, y.d)};
-    }
-
-    template <class T, class A>
-    static inline Vc::datapar<T, A> bit_shift_right(const Vc::datapar<T, A> &x, int y)
-    {
-        return {private_init, apply([y](auto xx) { return xx >> y; }, x.d)};
+        return apply([y](auto xx) { return xx >> y; }, x);
     }
 
     // sqrt {{{2
-    template <class T, class A>
-    static inline Vc::datapar<T, A> sqrt(const Vc::datapar<T, A> &x) noexcept
+    template <class T, class... As>
+    static inline datapar_tuple<T, As...> sqrt(datapar_tuple<T, As...> x) noexcept
     {
-        return {private_init, apply([](auto xx) { return Vc::sqrt(xx); }, x.d)};
+        return apply([](auto xx) { return Vc::sqrt(xx); }, x);
     }
 
     // abs {{{2
-    template <class T, class A>
-    static inline Vc::datapar<T, A> abs(const Vc::datapar<T, A> &x) noexcept
+    template <class T, class... As>
+    static inline datapar_tuple<T, As...> abs(datapar_tuple<T, As...> x) noexcept
     {
-        return {private_init, apply([](auto xx) { return Vc::abs(xx); }, x.d)};
+        return apply([](auto xx) { return Vc::abs(xx); }, x);
     }
 
     // increment & decrement{{{2
@@ -471,15 +434,17 @@ public:
 
     // compares {{{2
 #define Vc_CMP_OPERATIONS(cmp_)                                                          \
-    template <class V> static inline typename V::mask_type cmp_(const V &x, const V &y)  \
+    template <class T, class... As>                                                      \
+    static inline mask_member_type cmp_(datapar_tuple<T, As...> x,                       \
+                                        datapar_tuple<T, As...> y)                       \
     {                                                                                    \
         mask_member_type bits = 0;                                                       \
-        detail::for_each(x.d, y.d, [&bits](auto native_x, auto native_y, auto offset) {  \
+        detail::for_each(x, y, [&bits](auto native_x, auto native_y, auto offset) {      \
             bits |= mask_member_type(                                                    \
                         std::cmp_<>()(native_x, native_y).to_bitset().to_ullong())       \
                     << offset;                                                           \
         });                                                                              \
-        return {private_init, bits};                                                     \
+        return bits;                                                                     \
     }                                                                                    \
     Vc_NOTHING_EXPECTING_SEMICOLON
     Vc_CMP_OPERATIONS(equal_to);
@@ -491,16 +456,90 @@ public:
 #undef Vc_CMP_OPERATIONS
 
     // smart_reference access {{{2
-    template <class T, class A>
-    static Vc_INTRINSIC T get(const Vc::datapar<T, A> &v, int i) noexcept
+    template <class T, class... As>
+    static Vc_INTRINSIC T get(const datapar_tuple<T, As...> &v, int i) noexcept
     {
-        return v.d[i];
+        return v[i];
     }
-    template <class T, class A, class U>
-    static Vc_INTRINSIC void set(Vc::datapar<T, A> &v, int i, U &&x) noexcept
+    template <class T, class... As, class U>
+    static Vc_INTRINSIC void set(datapar_tuple<T, As...> &v, int i, U &&x) noexcept
     {
-        v.d.set(i, std::forward<U>(x));
+        v.set(i, std::forward<U>(x));
     }
+
+    // masked_assign {{{2
+    template <typename T, class... As>
+    static Vc_INTRINSIC void masked_assign(
+        const mask_member_type bits, detail::datapar_tuple<T, As...> &lhs,
+        const detail::id<detail::datapar_tuple<T, As...>> rhs)
+    {
+        detail::for_each(lhs, rhs, [&](auto &native_lhs, auto native_rhs, auto offset) {
+            using V = std::decay_t<decltype(native_lhs)>;
+            detail::get_impl_t<V>::masked_assign(
+                partial_bitset_to_member_type<V>(bits >> offset),
+                detail::data(native_lhs), detail::data(native_rhs));
+        });
+    }
+
+    // Optimization for the case where the RHS is a scalar. No need to broadcast the
+    // scalar to a datapar first.
+    template <typename T, class... As>
+    static Vc_INTRINSIC void masked_assign(const mask_member_type bits,
+                                           detail::datapar_tuple<T, As...> &lhs,
+                                           const detail::id<T> rhs)
+    {
+        detail::for_each(lhs, [&](auto &native_lhs, auto offset) {
+            using V = std::decay_t<decltype(native_lhs)>;
+            detail::get_impl_t<V>::masked_assign(
+                partial_bitset_to_member_type<V>(bits >> offset),
+                detail::data(native_lhs), rhs);
+        });
+    }
+
+    // masked_cassign {{{2
+    template <template <typename> class Op, typename T, class... As>
+    static inline void masked_cassign(const mask_member_type bits,
+                                      detail::datapar_tuple<T, As...> &lhs,
+                                      const detail::datapar_tuple<T, As...> rhs)
+    {
+        detail::for_each(lhs, rhs,
+                         [&](auto &native_lhs, auto native_rhs, auto offset) {
+                             using V = decltype(native_rhs);
+                             detail::get_impl_t<V>::template masked_cassign<Op>(
+                                 partial_bitset_to_member_type<V>(bits >> offset),
+                                 detail::data(native_lhs), detail::data(native_rhs));
+                         });
+    }
+
+    // Optimization for the case where the RHS is a scalar. No need to broadcast the
+    // scalar to a datapar
+    // first.
+    template <template <typename> class Op, typename T, class... As>
+    static inline void masked_cassign(const mask_member_type bits,
+                                      detail::datapar_tuple<T, As...> &lhs, const T rhs)
+    {
+        detail::for_each(lhs, [&](auto &native_lhs, auto offset) {
+            using V = std::decay_t<decltype(native_lhs)>;
+            detail::get_impl_t<V>::template masked_cassign<Op>(
+                partial_bitset_to_member_type<V>(bits >> offset),
+                detail::data(native_lhs), rhs);
+        });
+    }
+
+    // masked_unary {{{2
+    template <template <typename> class Op, class T, class... As>
+    static inline detail::datapar_tuple<T, As...> masked_unary(
+        const mask_member_type bits, const detail::datapar_tuple<T, As...> v)
+    {
+        detail::datapar_tuple<T, As...> r;
+        detail::for_each(r, v, [&](auto &native_r, auto native_v, auto offset) {
+            using V = decltype(native_v);
+            detail::data(native_r) = detail::get_impl_t<V>::template masked_unary<Op>(
+                partial_bitset_to_member_type<V>(bits >> offset), detail::data(native_v));
+        });
+        return r;
+    }
+
     // }}}2
 };
 
@@ -555,13 +594,13 @@ template <int N> struct fixed_size_mask_impl {
     }
 
     // masked load {{{2
-    template <class T, class F>
-    static inline void masked_load(mask<T> &merge, const mask<T> &mask, const bool *mem,
-                                   F) noexcept
+    template <class F>
+    static inline void masked_load(mask_member_type &merge, mask_member_type mask,
+                                   const bool *mem, F) noexcept
     {
         execute_n_times<N>([&](auto i) {
-            if (detail::data(mask)[i]) {
-                detail::data(merge)[i] = mem[i];
+            if (mask[i]) {
+                merge[i] = mem[i];
             }
         });
     }
@@ -662,13 +701,13 @@ template <int N> struct fixed_size_mask_impl {
     }
 
     // masked store {{{2
-    template <class T, class F>
-    static inline void masked_store(const mask<T> &v, bool *mem, F,
-                                    const mask<T> &k) noexcept
+    template <class F>
+    static inline void masked_store(const mask_member_type v, bool *mem, F,
+                                    const mask_member_type k) noexcept
     {
         execute_n_times<N>([&](auto i) {
-            if (detail::data(k)[i]) {
-                mem[i] = detail::data(v)[i];
+            if (k[i]) {
+                mem[i] = v[i];
             }
         });
     }
@@ -712,16 +751,34 @@ template <int N> struct fixed_size_mask_impl {
     }
 
     // smart_reference access {{{2
-    template <class T, class A>
-    static Vc_INTRINSIC bool get(const Vc::mask<T, A> &k, int i) noexcept
+    static Vc_INTRINSIC bool get(const mask_member_type k, int i) noexcept
     {
-        return k.d[i];
+        return k[i];
     }
-    template <class T, class A>
-    static Vc_INTRINSIC void set(Vc::mask<T, A> &k, int i, bool x) noexcept
+    static Vc_INTRINSIC void set(mask_member_type &k, int i, bool x) noexcept
     {
-        k.d.set(i, x);
+        k.set(i, x);
     }
+
+    // masked_assign {{{2
+    static Vc_INTRINSIC void masked_assign(const mask_member_type k,
+                                           mask_member_type &lhs,
+                                           const mask_member_type rhs)
+    {
+        lhs = (lhs & ~k) | (rhs & k);
+    }
+
+    // Optimization for the case where the RHS is a scalar.
+    static Vc_INTRINSIC void masked_assign(const mask_member_type k,
+                                           mask_member_type &lhs, const bool rhs)
+    {
+        if (rhs) {
+            lhs |= k;
+        } else {
+            lhs &= ~k;
+        }
+    }
+
     // }}}2
 };
 
@@ -745,7 +802,14 @@ struct fixed_size_traits {
         (
 #endif
                  next_power_of_2(N * sizeof(T)));
-    using datapar_cast_type = const std::array<T, N> &;
+    struct datapar_cast_type {
+        datapar_cast_type(const std::array<T, N> &);
+        datapar_cast_type(datapar_member_type dd) : d(dd) {}
+        explicit operator datapar_member_type() const { return d; }
+
+    private:
+        datapar_member_type d;
+    };
     struct datapar_base {
         datapar_base() = default;
         Vc_INTRINSIC datapar_base(const datapar_base &) {}
@@ -798,93 +862,6 @@ template <int N> struct traits<  char, datapar_abi::fixed_size<N>> : public fixe
 
 // }}}1
 }  // namespace detail
-
-// where implementation {{{1
-template <typename T, int N>
-static Vc_INTRINSIC void masked_assign(
-    const mask<T, datapar_abi::fixed_size<N>> &k,
-    datapar<T, datapar_abi::fixed_size<N>> &lhs,
-    const detail::id<datapar<T, datapar_abi::fixed_size<N>>> &rhs)
-{
-    const std::bitset<N> bits = k.to_bitset();
-    detail::for_each(detail::data(lhs), detail::data(rhs),
-                     [&](auto &native_lhs, auto native_rhs, auto offset) {
-                         using M = typename decltype(native_rhs)::mask_type;
-                         masked_assign(M::from_bitset((bits >> offset).to_ullong()),
-                                       native_lhs, native_rhs);
-                     });
-}
-
-template <typename T, int N>
-static Vc_INTRINSIC void masked_assign(
-    const mask<T, datapar_abi::fixed_size<N>> &k,
-    mask<T, datapar_abi::fixed_size<N>> &lhs,
-    const detail::id<mask<T, datapar_abi::fixed_size<N>>> &rhs)
-{
-    const std::bitset<N> mask = k.to_bitset();
-    lhs = lhs.from_bitset((lhs.to_bitset() & ~mask) | (rhs.to_bitset() & mask));
-}
-
-// Optimization for the case where the RHS is a scalar. No need to broadcast the scalar to a datapar
-// first.
-template <class T, int N, class U>
-static Vc_INTRINSIC
-    enable_if<std::is_convertible<U, datapar<T, datapar_abi::fixed_size<N>>>::value &&
-                  std::is_arithmetic<U>::value,
-              void>
-    masked_assign(const mask<T, datapar_abi::fixed_size<N>> &k,
-                  datapar<T, datapar_abi::fixed_size<N>> &lhs, const U &rhs)
-{
-    const std::bitset<N> bits = k.to_bitset();
-    detail::for_each(detail::data(lhs), [&](auto &native_lhs, auto offset) {
-        using M = typename std::decay_t<decltype(native_lhs)>::mask_type;
-        masked_assign(M::from_bitset((bits >> offset).to_ullong()), native_lhs, rhs);
-    });
-}
-
-template <template <typename> class Op, typename T, int N>
-inline void masked_cassign(const fixed_size_mask<T, N> &k, fixed_size_datapar<T, N> &lhs,
-                           const fixed_size_datapar<T, N> &rhs)
-{
-    const std::bitset<N> bits = k.to_bitset();
-    detail::for_each(detail::data(lhs), detail::data(rhs),
-                     [&](auto &native_lhs, auto native_rhs, auto offset) {
-                         using M = typename decltype(native_rhs)::mask_type;
-                         masked_cassign<Op>(M::from_bitset((bits >> offset).to_ullong()),
-                                            native_lhs, native_rhs);
-                     });
-}
-
-// Optimization for the case where the RHS is a scalar. No need to broadcast the scalar to a datapar
-// first.
-template <template <typename> class Op, typename T, int N, class U>
-inline enable_if<std::is_convertible<U, fixed_size_datapar<T, N>>::value &&
-                     std::is_arithmetic<U>::value,
-                 void>
-masked_cassign(const fixed_size_mask<T, N> &k, fixed_size_datapar<T, N> &lhs,
-               const U &rhs)
-{
-    const std::bitset<N> bits = k.to_bitset();
-    detail::for_each(detail::data(lhs), [&](auto &native_lhs, auto offset) {
-        using M = typename std::decay_t<decltype(native_lhs)>::mask_type;
-        masked_cassign<Op>(M::from_bitset((bits >> offset).to_ullong()), native_lhs, rhs);
-    });
-}
-
-template <template <typename> class Op, typename T, int N>
-inline fixed_size_datapar<T, N> masked_unary(const fixed_size_mask<T, N> &k,
-                                             const fixed_size_datapar<T, N> &v)
-{
-    fixed_size_datapar<T, N> r;
-    const std::bitset<N> bits = k.to_bitset();
-    detail::for_each(detail::data(r), detail::data(v), [&](auto &native_r, auto native_v,
-                                                           auto offset) {
-        using M = typename decltype(native_v)::mask_type;
-        native_r =
-            masked_unary<Op>(M::from_bitset((bits >> offset).to_ullong()), native_v);
-    });
-    return r;
-}
 
 // [mask.reductions] {{{1
 template <class T, int N> inline bool all_of(const fixed_size_mask<T, N> &k)

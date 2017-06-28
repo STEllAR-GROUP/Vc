@@ -33,25 +33,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <bitset>
 
 Vc_VERSIONED_NAMESPACE_BEGIN
-namespace detail
-{
-template <class T, class A> Vc_INTRINSIC_L const auto &data(const mask<T, A> &x) Vc_INTRINSIC_R;
-template <class T, class A> Vc_INTRINSIC_L auto &data(mask<T, A> &x) Vc_INTRINSIC_R;
-}  // namespace detail
-
 template <class T, class Abi> class mask : public detail::traits<T, Abi>::mask_base
 {
     using traits = detail::traits<T, Abi>;
     using impl = typename traits::mask_impl_type;
+    using member_type = typename traits::mask_member_type;
     static constexpr detail::size_tag_type<T, Abi> size_tag = {};
     static constexpr T *type_tag = nullptr;
+    friend class datapar<T, Abi>;  // to construct masks on return
     friend impl;
     friend typename traits::datapar_impl_type;  // to construct masks on return and
                                                 // inspect data on masked operations
 
 public:
     using value_type = bool;
-    using reference = detail::smart_reference<mask, impl>;
+    using reference = detail::smart_reference<member_type, impl, mask, value_type>;
     using datapar_type = datapar<T, Abi>;
     using size_type = size_t;
     using abi_type = Abi;
@@ -135,8 +131,8 @@ public:
     }
 
     // scalar access
-    Vc_ALWAYS_INLINE reference operator[](size_type i) { return {*this, int(i)}; }
-    Vc_ALWAYS_INLINE value_type operator[](size_type i) const { return impl::get(*this, int(i)); }
+    Vc_ALWAYS_INLINE reference operator[](size_type i) { return {d, int(i)}; }
+    Vc_ALWAYS_INLINE value_type operator[](size_type i) const { return impl::get(d, int(i)); }
 
     // negation
     Vc_ALWAYS_INLINE mask operator!() const { return {detail::private_init, impl::negate(d, size_tag)}; }
