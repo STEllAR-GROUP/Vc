@@ -732,19 +732,19 @@ template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, 
 #else   // Vc_USE_BUILTIN_VECTOR_TYPES
  
 // generic scalar fallback
-/* template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, Storage<T, N> b) */
-/* { */
-/*     static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types"); */
-/*     return generate_from_n_evaluations<N, Storage<T, N>>( */
-/*         [&](auto i) { return a[i] >> b[i]; }); */
-/* } */
+template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, Storage<T, N> b)
+{
+    static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types");
+    return generate_from_n_evaluations<N, Storage<T, N>>(
+        [&](auto i) { return a[i] >> b[i]; });
+}
 
-/* template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, int b) */
-/* { */
-/*     static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types"); */
-/*     return generate_from_n_evaluations<N, Storage<T, N>>( */
-/*         [&](auto i) { return a[i] >> b; }); */
-/* } */
+template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, int b)
+{
+    static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types");
+    return generate_from_n_evaluations<N, Storage<T, N>>(
+        [&](auto i) { return a[i] >> b; });
+}
 
 // improvements/specializations with newer instruction set extensions
  
