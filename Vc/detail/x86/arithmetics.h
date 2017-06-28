@@ -730,29 +730,47 @@ template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, 
     return a.builtin() >> detail::data(datapar<T, abi_for_size_t<T, N>>(b)).builtin();
 }
 #else   // Vc_USE_BUILTIN_VECTOR_TYPES
-
+ 
 // generic scalar fallback
-template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, Storage<T, N> b)
-{
-    static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types");
-    return generate_from_n_evaluations<N, Storage<T, N>>(
-        [&](auto i) { return a[i] >> b[i]; });
-}
+/* template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, Storage<T, N> b) */
+/* { */
+/*     static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types"); */
+/*     return generate_from_n_evaluations<N, Storage<T, N>>( */
+/*         [&](auto i) { return a[i] >> b[i]; }); */
+/* } */
 
-template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, int b)
-{
-    static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types");
-    return generate_from_n_evaluations<N, Storage<T, N>>(
-        [&](auto i) { return a[i] >> b; });
-}
+/* template <class T, size_t N> Vc_INTRINSIC auto bit_shift_right(Storage<T, N> a, int b) */
+/* { */
+/*     static_assert(std::is_integral<T>::value, "bit_shift_right is only supported for integral types"); */
+/*     return generate_from_n_evaluations<N, Storage<T, N>>( */
+/*         [&](auto i) { return a[i] >> b; }); */
+/* } */
 
 // improvements/specializations with newer instruction set extensions
+ 
 #ifdef Vc_HAVE_AVX2
-Vc_INTRINSIC x_i32 bit_shift_right(x_i32 a, x_i32 b) { return _mm_srav_epi32(a, b); }
+Vc_INTRINSIC x_i32 bit_shift_right(x_i32 a, x_i32 b) {
+    return _mm_srav_epi32(a, b); }
 Vc_INTRINSIC x_u32 bit_shift_right(x_u32 a, x_u32 b) { return _mm_srlv_epi32(a, b); }
 
 Vc_INTRINSIC y_i32 bit_shift_right(y_i32 a, y_i32 b) { return _mm256_srav_epi32(a, b); }
 Vc_INTRINSIC y_u32 bit_shift_right(y_u32 a, y_u32 b) { return _mm256_srlv_epi32(a, b); }
+
+/* Vc_INTRINSIC x_i32 bit_shift_right(x_i32 a, int b) { */
+/*         return _mm_srav_epi32(a, broadcast16(b)); */
+/* } */
+/* Vc_INTRINSIC x_u32 bit_shift_right(x_u32 a, int b) { */
+/*     return _mm_srlv_epi32(a, broadcast16(b)); */
+/* } */
+
+Vc_INTRINSIC y_i32 bit_shift_right(y_i32 a, int b) {
+    
+    return _mm256_srav_epi32(a, broadcast32(b));
+}
+/* Vc_INTRINSIC y_u32 bit_shift_right(y_u32 a, int b) { */
+
+/*     return _mm256_srlv_epi32(a, broadcast32(b)); */
+/* } */
 
 #ifdef Vc_HAVE_AVX512VL
 Vc_INTRINSIC x_i64 bit_shift_right(x_i64 a, x_i64 b) { return _mm_srav_epi64(a, b); }
@@ -760,6 +778,20 @@ Vc_INTRINSIC x_u64 bit_shift_right(x_u64 a, x_u64 b) { return _mm_srlv_epi64(a, 
 
 Vc_INTRINSIC y_i64 bit_shift_right(y_i64 a, y_i64 b) { return _mm256_srav_epi64(a, b); }
 Vc_INTRINSIC y_u64 bit_shift_right(y_u64 a, y_u64 b) { return _mm256_srlv_epi64(a, b); }
+
+/* Vc_INTRINSIC x_i64 bit_shift_right(x_i64 a, int b) { */
+/*     return _mm_srav_epi64(a, broadcast16(b)); */
+/* } */
+/* Vc_INTRINSIC x_u64 bit_shift_right(x_u64 a, int b) { */
+/*     return _mm_srlv_epi64(a, broadcast16(b)); */
+/* } */
+
+/* Vc_INTRINSIC y_i64 bit_shift_right(y_i64 a, int b) { */
+/*     return _mm256_srav_epi64(a, broadcast32(b)); */
+/* } */
+/* Vc_INTRINSIC y_u64 bit_shift_right(y_u64 a, int b) { */
+/*     return _mm256_srlv_epi64(a, broadcast32(b)); */
+/* } */
 #endif  // Vc_HAVE_AVX512VL
 
 #ifdef Vc_HAVE_AVX512F
@@ -767,17 +799,33 @@ Vc_INTRINSIC z_i64 bit_shift_right(z_i64 a, z_i64 b) { return _mm512_srav_epi64(
 Vc_INTRINSIC z_u64 bit_shift_right(z_u64 a, z_u64 b) { return _mm512_srlv_epi64(a, b); }
 Vc_INTRINSIC z_i32 bit_shift_right(z_i32 a, z_i32 b) { return _mm512_srav_epi32(a, b); }
 Vc_INTRINSIC z_u32 bit_shift_right(z_u32 a, z_u32 b) { return _mm512_srlv_epi32(a, b); }
+
+/* Vc_INTRINSIC z_i64 bit_shift_right(z_i64 a, int b) { */
+/*     return _mm512_srav_epi64(a, broadcast64(b)); */
+/* } */
+/* Vc_INTRINSIC z_u64 bit_shift_right(z_u64 a, int b) { */
+/*     return _mm512_srlv_epi64(a, broadcast64(b)); */
+/* } */
+/* Vc_INTRINSIC z_i32 bit_shift_right(z_i32 a, int b) { */
+/*     return _mm512_srav_epi32(a, broadcast64(b)); */
+/* } */
+/* Vc_INTRINSIC z_u32 bit_shift_right(z_u32 a, int b) { */
+/*     return _mm512_srlv_epi32(a, broadcast64(b)); */
+/* } */
 #endif  // Vc_HAVE_AVX512F
 
 #ifdef Vc_HAVE_AVX512BW
 Vc_INTRINSIC z_i16 bit_shift_right(z_i16 a, z_i16 b) { return _mm512_srav_epi16(a, b); }
 Vc_INTRINSIC z_u16 bit_shift_right(z_u16 a, z_u16 b) { return _mm512_srlv_epi16(a, b); }
+
 Vc_INTRINSIC y_i08 bit_shift_right(y_i08 a, y_i08 b) { return _mm512_cvtepi16_epi8(_mm512_srav_epi16(_mm512_cvtepi8_epi16(a), _mm512_cvtepi8_epi16(b))); }
 Vc_INTRINSIC y_u08 bit_shift_right(y_u08 a, y_u08 b)
 {
     return _mm512_cvtepi16_epi8(
         _mm512_srlv_epi16(_mm512_cvtepu8_epi16(a), _mm512_cvtepu8_epi16(b)));
 }
+
+ 
 Vc_INTRINSIC z_i08 bit_shift_right(z_i08 a, z_i08 b) { return concat(bit_shift_right(lo256(a), lo256(b)), bit_shift_right(hi256(a), hi256(b))); }
 Vc_INTRINSIC z_u08 bit_shift_right(z_u08 a, z_u08 b) { return concat(bit_shift_right(lo256(a), lo256(b)), bit_shift_right(hi256(a), hi256(b))); }
 #ifdef Vc_HAVE_AVX512VL
