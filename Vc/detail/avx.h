@@ -933,6 +933,15 @@ template <class T> Vc_ALWAYS_INLINE int Vc_VDECL find_last_set(mask<T, datapar_a
     return detail::lastbit(detail::mask_to_int<k.size()>(d));
 }
 
+
+//TODO: replace this vhack
+Vc_INTRINSIC datapar<double, datapar_abi::avx>
+    static_datapar_cast_double_to_int(const datapar<int32_t, datapar_abi::sse> &x)
+{
+
+    return datapar<double, datapar_abi::avx>(_mm256_cvtepi32_pd(data(x)));
+}
+
 Vc_VERSIONED_NAMESPACE_END
 // }}}
 

@@ -766,12 +766,12 @@ Vc_INTRINSIC x_u32 bit_shift_right(x_u32 a, x_u32 b) { return _mm_srlv_epi32(a, 
 Vc_INTRINSIC y_i32 bit_shift_right(y_i32 a, y_i32 b) { return _mm256_srav_epi32(a, b); }
 Vc_INTRINSIC y_u32 bit_shift_right(y_u32 a, y_u32 b) { return _mm256_srlv_epi32(a, b); }
 
-/* Vc_INTRINSIC x_i32 bit_shift_right(x_i32 a, int b) { */
-/*         return _mm_srav_epi32(a, broadcast16(b)); */
-/* } */
-/* Vc_INTRINSIC x_u32 bit_shift_right(x_u32 a, int b) { */
-/*     return _mm_srlv_epi32(a, broadcast16(b)); */
-/* } */
+Vc_INTRINSIC x_i32 bit_shift_right(x_i32 a, int b) {
+        return _mm_srav_epi32(a, broadcast16(b));
+}
+Vc_INTRINSIC x_u32 bit_shift_right(x_u32 a, int b) {
+    return _mm_srlv_epi32(a, broadcast16(b));
+}
 
 Vc_INTRINSIC y_i32 bit_shift_right(y_i32 a, int b) {
     
