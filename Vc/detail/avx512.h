@@ -525,7 +525,7 @@ struct avx512_datapar_impl : public generic_datapar_impl<avx512_datapar_impl> {
         /*         mem[i] = static_cast<T>(v.d.m(i)); */
         /*     } */
         /* }); */
-        _mm512_mask_storeu_pd(mem, data(k), v.d);
+        _mm512_mask_storeu_pd(mem, k, v);
     }
 
     // negation {{{2
@@ -1189,6 +1189,14 @@ Vc_ALWAYS_INLINE int find_last_set(mask<unsigned char, datapar_abi::avx512> k)
     return detail::lastbit(v);
 }
 #endif  // Vc_HAVE_FULL_AVX512_ABI
+
+//TODO: replace this vhack
+Vc_INTRINSIC datapar<double, datapar_abi::avx512>
+static_datapar_cast_double_to_int(const datapar<int32_t, datapar_abi::avx> &x)
+{
+
+  return datapar<double, datapar_abi::avx512>(_mm512_cvtepi32_pd(data(x)));
+}
 
 Vc_VERSIONED_NAMESPACE_END
 // }}}
