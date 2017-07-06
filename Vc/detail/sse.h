@@ -170,16 +170,17 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
 
     // load without conversion{{{3
     template <class T, class F>
-    static Vc_INTRINSIC intrinsic_type<T> load(const T *mem, F f, type_tag<T>) Vc_NOEXCEPT_OR_IN_TEST
+    static Vc_INTRINSIC datapar_member_type<T> load(const T *mem, F f,
+                                                    type_tag<T>) Vc_NOEXCEPT_OR_IN_TEST
     {
         return detail::load16(mem, f);
     }
 
     // convert from an SSE load{{{3
     template <class T, class U, class F>
-    static inline intrinsic_type<T> load(const convertible_memory<U, sizeof(T), T> *mem,
-                                         F f, type_tag<T>,
-                                         tag<1> = {}) Vc_NOEXCEPT_OR_IN_TEST
+    static inline datapar_member_type<T> load(
+        const convertible_memory<U, sizeof(T), T> *mem, F f, type_tag<T>,
+        tag<1> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
 #ifdef Vc_HAVE_FULL_SSE_ABI
         return convert<datapar_member_type<U>, datapar_member_type<T>>(
@@ -193,7 +194,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
 
     // convert from a half SSE load{{{3
     template <class T, class U, class F>
-    static inline intrinsic_type<T> load(
+    static inline datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) / 2, T> *mem, F f, type_tag<T>,
         tag<2> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
@@ -209,7 +210,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
 
     // convert from a quarter SSE load{{{3
     template <class T, class U, class F>
-    static inline intrinsic_type<T> load(
+    static inline datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) / 4, T> *mem, F f, type_tag<T>,
         tag<3> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
@@ -226,7 +227,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
     // convert from a 1/8th SSE load{{{3
 #ifdef Vc_HAVE_FULL_SSE_ABI
     template <class T, class U>
-    static Vc_INTRINSIC intrinsic_type<T> load(
+    static Vc_INTRINSIC datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) / 8, T> *mem,
         when_aligned<alignof(uint16_t)>, type_tag<T>, tag<4> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
@@ -235,7 +236,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
     }
 
     template <class T, class U>
-    static Vc_INTRINSIC intrinsic_type<T> load(
+    static Vc_INTRINSIC datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) / 8, T> *mem,
         when_unaligned<alignof(uint16_t)>, type_tag<T>,
         tag<4> = {}) Vc_NOEXCEPT_OR_IN_TEST
@@ -244,7 +245,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
     }
 #else   // Vc_HAVE_FULL_SSE_ABI
     template <class T, class U, class F>
-    static Vc_INTRINSIC intrinsic_type<T> load(
+    static Vc_INTRINSIC datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) / 8, T> *mem, F, type_tag<T>,
         tag<4> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
@@ -258,7 +259,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
 
     // convert from an AVX/2-SSE load{{{3
     template <class T, class U, class F>
-    static inline intrinsic_type<T> load(
+    static inline datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) * 2, T> *mem, F f, type_tag<T>,
         tag<5> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
@@ -277,7 +278,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
 
     // convert from an AVX512/2-AVX/4-SSE load{{{3
     template <class T, class U, class F>
-    static inline intrinsic_type<T> load(
+    static inline datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) * 4, T> *mem, F f, type_tag<T>,
         tag<6> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
@@ -296,7 +297,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
 
     // convert from a 2-AVX512/4-AVX/8-SSE load{{{3
     template <class T, class U, class F>
-    static inline intrinsic_type<T> load(
+    static inline datapar_member_type<T> load(
         const convertible_memory<U, sizeof(T) * 8, T> *mem, F f, type_tag<T>,
         tag<7> = {}) Vc_NOEXCEPT_OR_IN_TEST
     {
@@ -319,7 +320,8 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
     // masked load {{{2
     // fallback {{{3
     template <class T, class U, class F>
-    static inline void Vc_VDECL masked_load(datapar_member_type<T> &merge, mask_member_type<T> k, const U *mem,
+    static inline void Vc_VDECL masked_load(datapar_member_type<T> &merge,
+                                            mask_member_type<T> k, const U *mem,
                                             F) Vc_NOEXCEPT_OR_IN_TEST
     {
         execute_n_times<size<T>()>([&](auto i) {
@@ -594,7 +596,7 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
 #if defined Vc_GCC && defined Vc_USE_BUILTIN_VECTOR_TYPES
         return !x.builtin();
 #else
-        return equal_to(x, datapar<T>(0).d);
+        return equal_to(x, datapar_member_type<T>(x86::zero<intrinsic_type<T>>()));
 #endif
     }
 
@@ -669,191 +671,205 @@ struct sse_datapar_impl : public generic_datapar_impl<sse_datapar_impl> {
     }
 
     // min, max, clamp {{{2
-    static Vc_INTRINSIC datapar<double> min(datapar<double> a, datapar<double> b)
+    static Vc_INTRINSIC datapar_member_type<double> min(datapar_member_type<double> a,
+                                                        datapar_member_type<double> b)
     {
-        return {private_init, _mm_min_pd(data(a), data(b))};
+        return _mm_min_pd(a, b);
     }
 
-    static Vc_INTRINSIC datapar<float> min(datapar<float> a, datapar<float> b)
+    static Vc_INTRINSIC datapar_member_type<float> min(datapar_member_type<float> a,
+                                                       datapar_member_type<float> b)
     {
-        return {private_init, _mm_min_ps(data(a), data(b))};
+        return _mm_min_ps(a, b);
     }
 
-    static Vc_INTRINSIC datapar<llong> min(datapar<llong> a, datapar<llong> b)
+    static Vc_INTRINSIC datapar_member_type<llong> min(datapar_member_type<llong> a,
+                                                       datapar_member_type<llong> b)
     {
-        auto x = data(a), y = data(b);
 #if defined Vc_HAVE_AVX512F && defined Vc_HAVE_AVX512VL
-        return {private_init, _mm_min_epi64(x, y)};
+        return _mm_min_epi64(a, b);
 #else
-        return {private_init, blendv_epi8(x, y, cmpgt_epi64(x, y))};
+        return blendv_epi8(a, b, cmpgt_epi64(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<ullong> min(datapar<ullong> a, datapar<ullong> b)
+    static Vc_INTRINSIC datapar_member_type<ullong> min(datapar_member_type<ullong> a,
+                                                        datapar_member_type<ullong> b)
     {
-        auto x = data(a), y = data(b);
 #if defined Vc_HAVE_AVX512F && defined Vc_HAVE_AVX512VL
-        return {private_init, _mm_min_epu64(x, y)};
+        return _mm_min_epu64(a, b);
 #else
-        return {private_init, blendv_epi8(x, y, cmpgt_epu64(x, y))};
+        return blendv_epi8(a, b, cmpgt_epu64(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<int> min(datapar<int> a, datapar<int> b)
-    {
-        auto x = data(a), y = data(b);
-#ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_min_epi32(x, y)};
-#else
-        return {private_init, blendv_epi8(x, y, _mm_cmpgt_epi32(x, y))};
-#endif
-    }
-
-    static Vc_INTRINSIC datapar<uint> min(datapar<uint> a, datapar<uint> b)
-    {
-        auto x = data(a), y = data(b);
-#ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_min_epu32(x, y)};
-#else
-        return {private_init, blendv_epi8(x, y, cmpgt_epu32(x, y))};
-#endif
-    }
-
-    static Vc_INTRINSIC datapar<short> min(datapar<short> a, datapar<short> b)
-    {
-        return {private_init, _mm_min_epi16(data(a), data(b))};
-    }
-
-    static Vc_INTRINSIC datapar<ushort> min(datapar<ushort> a, datapar<ushort> b)
-    {
-        auto x = data(a), y = data(b);
-#ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_min_epu16(x, y)};
-#else
-        return {private_init, blendv_epi8(x, y, cmpgt_epu16(x, y))};
-#endif
-    }
-
-    static Vc_INTRINSIC datapar<schar> min(datapar<schar> a, datapar<schar> b)
+    static Vc_INTRINSIC datapar_member_type<int> min(datapar_member_type<int> a,
+                                                     datapar_member_type<int> b)
     {
 #ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_min_epi8(data(a), data(b))};
+        return _mm_min_epi32(a, b);
 #else
-        auto x = data(a), y = data(b);
-        return {private_init, blendv_epi8(x, y, _mm_cmpgt_epi8(x, y))};
+        return blendv_epi8(a, b, _mm_cmpgt_epi32(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<uchar> min(datapar<uchar> a, datapar<uchar> b)
+    static Vc_INTRINSIC datapar_member_type<uint> min(datapar_member_type<uint> a,
+                                                      datapar_member_type<uint> b)
     {
-        return {private_init, _mm_min_epu8(data(a), data(b))};
+#ifdef Vc_HAVE_SSE4_1
+        return _mm_min_epu32(a, b);
+#else
+        return blendv_epi8(a, b, cmpgt_epu32(a, b));
+#endif
     }
 
-    static Vc_INTRINSIC datapar<double> max(datapar<double> a, datapar<double> b)
+    static Vc_INTRINSIC datapar_member_type<short> min(datapar_member_type<short> a,
+                                                       datapar_member_type<short> b)
     {
-        return {private_init, _mm_max_pd(data(a), data(b))};
+        return _mm_min_epi16(a, b);
     }
 
-    static Vc_INTRINSIC datapar<float> max(datapar<float> a, datapar<float> b)
+    static Vc_INTRINSIC datapar_member_type<ushort> min(datapar_member_type<ushort> a,
+                                                        datapar_member_type<ushort> b)
     {
-        return {private_init, _mm_max_ps(data(a), data(b))};
+#ifdef Vc_HAVE_SSE4_1
+        return _mm_min_epu16(a, b);
+#else
+        return blendv_epi8(a, b, cmpgt_epu16(a, b));
+#endif
     }
 
-    static Vc_INTRINSIC datapar<llong> max(datapar<llong> a, datapar<llong> b)
+    static Vc_INTRINSIC datapar_member_type<schar> min(datapar_member_type<schar> a,
+                                                       datapar_member_type<schar> b)
     {
-        auto x = data(a), y = data(b);
+#ifdef Vc_HAVE_SSE4_1
+        return _mm_min_epi8(a, b);
+#else
+        return blendv_epi8(a, b, _mm_cmpgt_epi8(a, b));
+#endif
+    }
+
+    static Vc_INTRINSIC datapar_member_type<uchar> min(datapar_member_type<uchar> a,
+                                                       datapar_member_type<uchar> b)
+    {
+        return _mm_min_epu8(a, b);
+    }
+
+    static Vc_INTRINSIC datapar_member_type<double> max(datapar_member_type<double> a,
+                                                        datapar_member_type<double> b)
+    {
+        return _mm_max_pd(a, b);
+    }
+
+    static Vc_INTRINSIC datapar_member_type<float> max(datapar_member_type<float> a,
+                                                       datapar_member_type<float> b)
+    {
+        return _mm_max_ps(a, b);
+    }
+
+    static Vc_INTRINSIC datapar_member_type<llong> max(datapar_member_type<llong> a,
+                                                       datapar_member_type<llong> b)
+    {
 #if defined Vc_HAVE_AVX512F && defined Vc_HAVE_AVX512VL
-        return {private_init, _mm_max_epi64(x, y)};
+        return _mm_max_epi64(a, b);
 #else
-        return {private_init, blendv_epi8(y, x, cmpgt_epi64(x, y))};
+        return blendv_epi8(b, a, cmpgt_epi64(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<ullong> max(datapar<ullong> a, datapar<ullong> b)
+    static Vc_INTRINSIC datapar_member_type<ullong> max(datapar_member_type<ullong> a,
+                                                        datapar_member_type<ullong> b)
     {
-        auto x = data(a), y = data(b);
 #if defined Vc_HAVE_AVX512F && defined Vc_HAVE_AVX512VL
-        return {private_init, _mm_max_epu64(x, y)};
+        return _mm_max_epu64(a, b);
 #else
-        return {private_init, blendv_epi8(y, x, cmpgt_epu64(x, y))};
+        return blendv_epi8(b, a, cmpgt_epu64(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<int> max(datapar<int> a, datapar<int> b)
-    {
-        auto x = data(a), y = data(b);
+    static Vc_INTRINSIC datapar_member_type<int> max(datapar_member_type<int> a,
+                                                     datapar_member_type<int> b){
 #ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_max_epi32(x, y)};
+        return _mm_max_epi32(a, b);
 #else
-        return {private_init, blendv_epi8(y, x, _mm_cmpgt_epi32(x, y))};
+        return blendv_epi8(b, a, _mm_cmpgt_epi32(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<uint> max(datapar<uint> a, datapar<uint> b)
-    {
-        auto x = data(a), y = data(b);
+    static Vc_INTRINSIC datapar_member_type<uint> max(datapar_member_type<uint> a,
+                                                      datapar_member_type<uint> b){
 #ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_max_epu32(x, y)};
+        return _mm_max_epu32(a, b);
 #else
-        return {private_init, blendv_epi8(y, x, cmpgt_epu32(x, y))};
+        return blendv_epi8(b, a, cmpgt_epu32(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<short> max(datapar<short> a, datapar<short> b)
+    static Vc_INTRINSIC datapar_member_type<short> max(datapar_member_type<short> a,
+                                                       datapar_member_type<short> b)
     {
-        return {private_init, _mm_max_epi16(data(a), data(b))};
+        return _mm_max_epi16(a, b);
     }
 
-    static Vc_INTRINSIC datapar<ushort> max(datapar<ushort> a, datapar<ushort> b)
-    {
-        auto x = data(a), y = data(b);
-#ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_max_epu16(x, y)};
-#else
-        return {private_init, blendv_epi8(y, x, cmpgt_epu16(x, y))};
-#endif
-    }
-
-    static Vc_INTRINSIC datapar<schar> max(datapar<schar> a, datapar<schar> b)
+    static Vc_INTRINSIC datapar_member_type<ushort> max(datapar_member_type<ushort> a,
+                                                        datapar_member_type<ushort> b)
     {
 #ifdef Vc_HAVE_SSE4_1
-        return {private_init, _mm_max_epi8(data(a), data(b))};
+        return _mm_max_epu16(a, b);
 #else
-        auto x = data(a), y = data(b);
-        return {private_init, blendv_epi8(y, x, _mm_cmpgt_epi8(x, y))};
+        return blendv_epi8(b, a, cmpgt_epu16(a, b));
 #endif
     }
 
-    static Vc_INTRINSIC datapar<uchar> max(datapar<uchar> a, datapar<uchar> b)
+    static Vc_INTRINSIC datapar_member_type<schar> max(datapar_member_type<schar> a,
+                                                       datapar_member_type<schar> b)
     {
-        return {private_init, _mm_max_epu8(data(a), data(b))};
+#ifdef Vc_HAVE_SSE4_1
+        return _mm_max_epi8(a, b);
+#else
+        return blendv_epi8(b, a, _mm_cmpgt_epi8(a, b));
+#endif
     }
 
-    static Vc_INTRINSIC datapar<long> min(datapar<long> a, datapar<long> b)
+    static Vc_INTRINSIC datapar_member_type<uchar> max(datapar_member_type<uchar> a,
+                                                       datapar_member_type<uchar> b)
     {
-        return datapar<long>{data(min(datapar<equal_int_type_t<long>>(data(a)),
-                                      datapar<equal_int_type_t<long>>(data(b))))};
-    }
-    static Vc_INTRINSIC datapar<long> max(datapar<long> a, datapar<long> b)
-    {
-        return datapar<long>{data(max(datapar<equal_int_type_t<long>>(data(a)),
-                                      datapar<equal_int_type_t<long>>(data(b))))};
+        return _mm_max_epu8(a, b);
     }
 
-    static Vc_INTRINSIC datapar<ulong> min(datapar<ulong> a, datapar<ulong> b)
+    static Vc_INTRINSIC datapar_member_type<long> min(datapar_member_type<long> a,
+                                                      datapar_member_type<long> b)
     {
-        return datapar<ulong>{data(min(datapar<equal_int_type_t<ulong>>(data(a)),
-                                       datapar<equal_int_type_t<ulong>>(data(b))))};
+        return min(datapar_member_type<equal_int_type_t<long>>(a.v()),
+                   datapar_member_type<equal_int_type_t<long>>(b.v()))
+            .v();
     }
-    static Vc_INTRINSIC datapar<ulong> max(datapar<ulong> a, datapar<ulong> b)
+    static Vc_INTRINSIC datapar_member_type<long> max(datapar_member_type<long> a,
+                                                      datapar_member_type<long> b)
     {
-        return datapar<ulong>{data(max(datapar<equal_int_type_t<ulong>>(data(a)),
-                                       datapar<equal_int_type_t<ulong>>(data(b))))};
+        return max(datapar_member_type<equal_int_type_t<long>>(a.v()),
+                   datapar_member_type<equal_int_type_t<long>>(b.v()))
+            .v();
+    }
+
+    static Vc_INTRINSIC datapar_member_type<ulong> min(datapar_member_type<ulong> a,
+                                                       datapar_member_type<ulong> b)
+    {
+        return min(datapar_member_type<equal_int_type_t<ulong>>(a.v()),
+                   datapar_member_type<equal_int_type_t<ulong>>(b.v()))
+            .v();
+    }
+    static Vc_INTRINSIC datapar_member_type<ulong> max(datapar_member_type<ulong> a,
+                                                       datapar_member_type<ulong> b)
+    {
+        return max(datapar_member_type<equal_int_type_t<ulong>>(a.v()),
+                   datapar_member_type<equal_int_type_t<ulong>>(b.v()))
+            .v();
     }
 
     template <class T>
-    static Vc_INTRINSIC std::pair<datapar<T>, datapar<T>> minmax(datapar<T> a,
-                                                                 datapar<T> b)
+    static Vc_INTRINSIC std::pair<datapar_member_type<T>, datapar_member_type<T>> minmax(
+        datapar_member_type<T> a, datapar_member_type<T> b)
     {
         return {min(a, b), max(a, b)};
     }
@@ -993,13 +1009,12 @@ struct sse_mask_impl : public generic_mask_impl<datapar_abi::sse, sse_mask_membe
 #else
         __m128i k = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(mem));
 #endif
-        return intrin_cast<__m128>(
-            _mm_cmpgt_epi16(_mm_unpacklo_epi8(k, k), _mm_setzero_si128()));
+        return _mm_cmpgt_epi16(_mm_unpacklo_epi8(k, k), _mm_setzero_si128());
     }
     template <class F>
     static Vc_INTRINSIC auto load(const bool *mem, F f, size_tag<16>) noexcept
     {
-        return intrin_cast<__m128>(_mm_cmpgt_epi8(load16(mem, f), _mm_setzero_si128()));
+        return _mm_cmpgt_epi8(load16(mem, f), _mm_setzero_si128());
     }
 #endif  // Vc_HAVE_SSE2
 
