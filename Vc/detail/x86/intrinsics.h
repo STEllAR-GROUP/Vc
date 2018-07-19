@@ -1910,9 +1910,11 @@ template <int n> Vc_INTRINSIC __m256d shift_left(__m256d v)
 }
 template <int n> Vc_INTRINSIC __m256i shift_left(__m256i v)
 {
-    return _mm256_castsi256_pd(
+    return /* _mm256_castsi256_pd( */
         n < 16 ? _mm256_slli_si256(v, n)
-               : _mm256_slli_si256(_mm256_permute2x128_si256(v, v, 0x08), n));
+               : _mm256_slli_si256(_mm256_permute2x128_si256(v, v, 0x08), n)
+        /* ) */
+        ;
 }
 #endif
 
